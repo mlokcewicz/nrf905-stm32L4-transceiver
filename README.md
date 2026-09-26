@@ -22,8 +22,6 @@
 
 * CMSIS_5 5.9.0
 * cmsis_device_l4 v1.7.2
-* FreeRTOS-Kernel V10.4.6
-* stm32l4xx_hal_driver v1.13.4 (optional)
 
 ## Build
 
