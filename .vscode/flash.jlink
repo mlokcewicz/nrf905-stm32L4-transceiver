@@ -1,0 +1,3 @@
+loadfile build/app/nrf905_stm32l4_transceiver.elf
+r0
+q

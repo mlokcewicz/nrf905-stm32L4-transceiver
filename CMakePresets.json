@@ -1,0 +1,56 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+      "major": 3,
+      "minor": 23,
+      "patch": 0
+    },
+    "configurePresets": [
+      {
+        "name": "base",
+        "displayName": "base",
+        "hidden": true,
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Debug",
+          "HW_VERSION": "v0.0.1"
+        }
+      },
+      {
+        "name": "v0.0.1_debug",
+        "inherits": "base",
+        "displayName": "v0.0.1_debug",
+        "description": "HW v0.0.1 Debug",
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "HW_VERSION": "v0.0.1"
+          }
+      },
+      {
+        "name": "v0.0.1_release",
+        "inherits": "base",
+        "displayName": "v0.0.1_release",
+        "description": "HW v0.0.1 Release",
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "HW_VERSION": "v0.0.1"
+          }
+      }
+    ],
+    "buildPresets": [
+      {
+        "name": "v0.0.1_debug",
+        "configurePreset": "v0.0.1_debug",
+        "targets": "all",
+        "jobs": 0
+      },
+      {
+        "name": "v0.0.1_release",
+        "configurePreset": "v0.0.1_release",
+        "targets": "all",
+        "jobs": 0
+      }
+    ]
+}
+  
