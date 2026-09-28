@@ -22,6 +22,10 @@ int main()
     /* SYSCLK = 4 MHz, source: MSI, AHB presc = /1 → HCLK = 4 MHz APB1/APB2 presc = /1 → PCLK1 = PCLK2 = 4 MHz */
     SystemInit();
 
+    /* Vcore range 1, HCLK <= 48 MHz */
+    flash_set_latency(FLASH_ACR_LATENCY_2WS);
+
+    /* SYSCLK = HCLK = PCLK1 = PCLK2 = 40 MHz, HSI on, LS on */
     struct rcc_config cfg = 
     {
         .lsi_on = true,

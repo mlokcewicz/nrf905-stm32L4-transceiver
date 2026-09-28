@@ -5,6 +5,8 @@ target_include_directories(drivers PUBLIC .)
 
 target_sources(drivers PRIVATE 
     systick.c
+    rcc.c
+    flash.c
 )
 
 target_link_libraries(drivers
