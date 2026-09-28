@@ -22,6 +22,75 @@ static struct usart_obj usart = {0};
 
 //------------------------------------------------------------------------------
 
+struct stack_frame
+{
+    uint32_t r0;
+    uint32_t r1;
+    uint32_t r2;
+    uint32_t r3;
+    uint32_t r12;
+    uint32_t lr;
+    uint32_t pc;
+    uint32_t xpsr;
+} __packed;
+
+void hadfault_handler_c(struct stack_frame *frame)
+{
+    const uint32_t cfsr = SCB->CFSR;
+
+    /* MemManage */
+    volatile bool iaccviol __attribute__((unused)) = (cfsr & SCB_CFSR_IACCVIOL_Msk) != 0;
+    volatile bool daccviol __attribute__((unused)) = (cfsr & SCB_CFSR_DACCVIOL_Msk) != 0;
+    volatile bool munstkerr __attribute__((unused)) = (cfsr & SCB_CFSR_MUNSTKERR_Msk) != 0;
+    volatile bool mstkerr __attribute__((unused)) = (cfsr & SCB_CFSR_MSTKERR_Msk) != 0;
+    volatile bool mlsperr __attribute__((unused)) = (cfsr & SCB_CFSR_MLSPERR_Msk) != 0;
+    volatile bool mmarvalid __attribute__((unused)) = (cfsr & SCB_CFSR_MMARVALID_Msk) != 0;
+
+    /* BusFault */
+    volatile bool ibuserr __attribute__((unused)) = (cfsr & SCB_CFSR_IBUSERR_Msk) != 0;
+    volatile bool preciserr __attribute__((unused)) = (cfsr & SCB_CFSR_PRECISERR_Msk) != 0;
+    volatile bool impreciserr __attribute__((unused)) = (cfsr & SCB_CFSR_IMPRECISERR_Msk) != 0;
+    volatile bool unstkerr __attribute__((unused)) = (cfsr & SCB_CFSR_UNSTKERR_Msk) != 0;
+    volatile bool stkerr __attribute__((unused)) = (cfsr & SCB_CFSR_STKERR_Msk) != 0;
+    volatile bool lsperr __attribute__((unused)) = (cfsr & SCB_CFSR_LSPERR_Msk) != 0;
+    volatile bool bfarvalid __attribute__((unused)) = (cfsr & SCB_CFSR_BFARVALID_Msk) != 0;
+
+    /* UsageFault*/
+    volatile bool undefinstr __attribute__((unused)) = (cfsr & SCB_CFSR_UNDEFINSTR_Msk) != 0;
+    volatile bool invstate __attribute__((unused)) = (cfsr & SCB_CFSR_INVSTATE_Msk) != 0;
+    volatile bool invpc __attribute__((unused)) = (cfsr & SCB_CFSR_INVPC_Msk) != 0;
+    volatile bool nocp __attribute__((unused)) = (cfsr & SCB_CFSR_NOCP_Msk) != 0;
+    volatile bool unaligned __attribute__((unused)) = (cfsr & SCB_CFSR_UNALIGNED_Msk) != 0;
+    volatile bool divbyzero __attribute__((unused)) = (cfsr & SCB_CFSR_DIVBYZERO_Msk) != 0;
+
+    volatile uint32_t mmfar __attribute__((unused)) = SCB->MMFAR;
+    volatile uint32_t bfar __attribute__((unused)) = SCB->BFAR;
+    volatile uint32_t afsr __attribute__((unused)) = SCB->AFSR;
+
+    const uint32_t hfsr = SCB->HFSR;
+
+    volatile bool vecttbl  __attribute__((unused)) = (hfsr & SCB_HFSR_VECTTBL_Msk) != 0;
+    volatile bool forced   __attribute__((unused)) = (hfsr & SCB_HFSR_FORCED_Msk) != 0;
+    volatile bool debugevt __attribute__((unused)) = (hfsr & SCB_HFSR_DEBUGEVT_Msk) != 0;
+
+    while (1)
+    {
+        __NOP();
+    }
+}
+
+__attribute__((naked)) void HardFault_Handler(void)
+{
+    asm volatile(
+        "tst lr, 1 << 2\n\t"
+        "ite eq\n\t"
+        "mrseq r0, msp\n\t" // store sp to retrieve stack frame pointer as the first arg for C handler
+        "mrsne r0, psp\n\t" // store sp to retrieve stack frame pointer as the first arg for C handler
+        "ldr r4, =hadfault_handler_c\n\t" // store c handler address to r4
+        "bx r4\n\t" // jump to C handler
+    );
+}
+
 int __io_putchar(int ch)
 {
   usart_send(&usart, (uint8_t*)&ch, 1);
