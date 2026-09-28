@@ -16,10 +16,12 @@
 #include <wdg.h>
 #include <gpio.h>
 #include <usart.h>
+#include <spi.h>
 
 //------------------------------------------------------------------------------
 
 static struct usart_obj usart = {0};
+static struct spi_obj spi = {0};
 
 //------------------------------------------------------------------------------
 
@@ -98,10 +100,28 @@ int __io_putchar(int ch)
     return 1;
 }
 
-static bool io_init(void)
+static bool usart_io_init(void)
 {
     GPIO_CONFIG(A, 2, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
     GPIO_CONFIG(A, 3, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
+
+    return true;
+}
+
+static void spi_cs_write(bool state)
+{
+    GPIO_SET(B, 12, state);
+}
+
+static bool spi_io_init(void)
+{
+    GPIO_CONFIG(B, 13, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 SCK */
+    GPIO_CONFIG(B, 14, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MISO */
+    GPIO_CONFIG(B, 15, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MOSI */
+
+    /* GPIOB clock is active; preload CS high before enabling its output. */
+    spi_cs_write(true);
+    GPIO_CONFIG(B, 12, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
 
     return true;
 }
@@ -157,10 +177,25 @@ int main()
         .stop_bits = USART_STOP_BITS_1,
         .oversampling = USART_OVERSAMPLING_16,
         .baudrate = 115200,
-        .io_init = io_init,
+        .io_init = usart_io_init,
     };
 
     if (!usart_init(&usart, &usart_cfg))
+        return 1;
+
+    struct spi_cfg spi_cfg =
+    {
+        .inst = SPI_INSTANCE_2,
+        .clock_presc = SPI_CLOCK_PRESC_16,
+        .data_size = SPI_DATASIZE_8_BIT,
+        .io_init = spi_io_init,
+        .cs_set = spi_cs_write,
+        .cpol = false,
+        .cpha = false,
+        .lsb_first = false,
+    };
+
+    if (!spi_init(&spi, &spi_cfg))
         return 1;
 
     GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
