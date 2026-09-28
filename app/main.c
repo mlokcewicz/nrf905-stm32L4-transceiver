@@ -10,6 +10,7 @@
 #include <stm32l4xx.h>
 
 #include <systick.h>
+#include <gpio.h>
 
 //------------------------------------------------------------------------------
 
@@ -23,20 +24,12 @@ int main()
 
     systick_init();
 
-    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-    while(!(RCC->AHB2ENR & RCC_AHB2ENR_GPIOAEN));
+    GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
 
-    GPIOA->MODER &= ~GPIO_MODER_MODE5;  // clear mode register for GPIOA pin 5
-    GPIOA->MODER |= GPIO_MODER_MODE5_0; // set mode register general puprpose output
-
-    GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_5);    // set output type  to push-pull
-    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPD5_Msk); // disable pull-up and pull-down
-
-    GPIOA->BSRR = (1 << 5); // set bit
-
+    
     while (1)
     {
-        GPIOA->ODR ^= 1 << 5;
+        GPIO_TOGGLE(A, 5);
         systick_delay(500);
     }
 
