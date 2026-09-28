@@ -14,6 +14,27 @@
 #include <gpio.h>
 #include <flash.h>
 #include <pwr.h>
+#include <usart.h>
+
+//------------------------------------------------------------------------------
+
+static struct usart_obj usart = {0};
+
+//------------------------------------------------------------------------------
+
+int __io_putchar(int ch)
+{
+  usart_send(&usart, (uint8_t*)&ch, 1);
+  return 1;
+}
+
+static bool io_init(void)
+{
+    GPIO_CONFIG(A, 2, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
+    GPIO_CONFIG(A, 3, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
+
+    return true;
+}
 
 //------------------------------------------------------------------------------
 
@@ -54,11 +75,28 @@ int main()
 
     systick_init();
 
+    struct usart_cfg usart_cfg =
+    {
+        .inst = USART_INSTANCE_2,
+        .rx_tx = USART_TX_ENABLE | USART_RX_ENABLE,
+        .data_size = USART_DATASIZE_8_BIT,
+        .parity = USART_PARITY_DISABLED,
+        .stop_bits = USART_STOP_BITS_1,
+        .oversampling = USART_OVERSAMPLING_16,
+        .baudrate = 115200,
+        .io_init = io_init,
+    };
+
+    if (!usart_init(&usart, &usart_cfg))
+        return 1;
+
     GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
     
     while (1)
     {
         GPIO_TOGGLE(A, 5);
+        printf("Hello!\n");
+
         systick_delay(500);
     }
 

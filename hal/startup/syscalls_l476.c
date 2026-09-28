@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <errno.h>
 
+extern int __io_putchar(int ch) __attribute__((weak));
+
 caddr_t __attribute__((used)) _sbrk(int incr)
 {
     extern char _end;               // Defined by the linker (.bss end, heap start).
@@ -55,7 +57,24 @@ void _read(void)
 
 }
 
-void _write(void)
+void _isatty_r(void)
 {
 
+}
+
+void _fstat_r(void)
+{
+
+}
+
+__attribute__((weak)) int _write(int file, char *ptr, int len)
+{
+  (void)file;
+  int DataIdx;
+
+  for (DataIdx = 0; DataIdx < len; DataIdx++)
+  {
+    __io_putchar(*ptr++);
+  }
+  return len;
 }
