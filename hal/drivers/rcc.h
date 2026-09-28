@@ -1,0 +1,78 @@
+//------------------------------------------------------------------------------
+
+/// @file rcc.h
+/// @note Copyright (C) Michał Łokcewicz. All rights reserved.
+
+//------------------------------------------------------------------------------
+
+#ifndef RCC_H_
+#define RCC_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//------------------------------------------------------------------------------
+
+#include <stdbool.h>
+
+#include <stm32l4xx.h>
+
+//------------------------------------------------------------------------------
+
+#define RCC_PLLM_DIV1 0
+#define RCC_PLLM_DIV2 1
+#define RCC_PLLM_DIV3 2
+#define RCC_PLLM_DIV4 3
+#define RCC_PLLM_DIV5 4
+#define RCC_PLLM_DIV6 5
+#define RCC_PLLM_DIV7 6
+#define RCC_PLLM_DIV8 7
+
+#define RCC_PLLR_DIV2 0
+#define RCC_PLLR_DIV4 1
+#define RCC_PLLR_DIV6 2
+#define RCC_PLLR_DIV8 3
+
+//------------------------------------------------------------------------------
+
+struct main_pll_config
+{
+    bool main_pll_on;
+    uint8_t pllr;    /* PLLCLK = VCO / pllr */
+    uint8_t pllren;
+    uint8_t plln;
+    uint8_t pllm;    /* PLL input divider: RCC_PLLM_DIV1 through RCC_PLLM_DIV8 */
+    uint8_t pllsrc;
+};
+
+struct rcc_config
+{
+    bool lsi_on;
+    bool hsi_on;
+    bool hse_on;
+    uint32_t ahb_presc;
+    uint32_t apb1_presc;
+    uint32_t apb2_presc;
+    uint8_t sysclk_source;
+
+    struct main_pll_config pll;
+};
+
+//------------------------------------------------------------------------------
+
+/// @brief Configures LSI, HSI, HSE, bus prescalers, the main PLL and the SYSCLK source
+/// @note Blocks until enabled oscillators and the main PLL are ready, without a timeout
+/// @note Does not wait for SYSCLK switch completion or update SystemCoreClock
+/// @param cfg Pointer to the clock configuration structure @ref rcc_config
+void rcc_init(struct rcc_config *cfg);
+
+//------------------------------------------------------------------------------
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* RCC_H_ */
+
+//------------------------------------------------------------------------------
