@@ -8,6 +8,7 @@
 * Pure hardware-driven architecture for receiver (no main loop nor interrupts)
 * Custom, fixed size framre structure
 * Communication with PC over UART
+* Bare metal architecture, no OS, based on custom low level peripheral drivers
 
 ## Tools
 
