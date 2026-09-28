@@ -8,7 +8,9 @@ target_sources(drivers PRIVATE
     rcc.c
     pwr.c
     flash.c
+    wdg.c
     usart.c
+    spi.c
 )
 
 target_link_libraries(drivers

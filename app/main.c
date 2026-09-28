@@ -10,10 +10,11 @@
 #include <stm32l4xx.h>
 
 #include <systick.h>
-#include <rcc.h>
-#include <gpio.h>
-#include <flash.h>
 #include <pwr.h>
+#include <rcc.h>
+#include <flash.h>
+#include <wdg.h>
+#include <gpio.h>
 #include <usart.h>
 
 //------------------------------------------------------------------------------
@@ -93,8 +94,8 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 int __io_putchar(int ch)
 {
-  usart_send(&usart, (uint8_t*)&ch, 1);
-  return 1;
+    usart_send(&usart, (uint8_t *)&ch, 1);
+    return 1;
 }
 
 static bool io_init(void)
@@ -144,6 +145,9 @@ int main()
 
     systick_init();
 
+    /* Maximum IWDG timeout: 32.768 s at nominal LSI = 32 kHz. */
+    wdg_init(IWDG_PRESCALER_256, 0x0FFFu);
+
     struct usart_cfg usart_cfg =
     {
         .inst = USART_INSTANCE_2,
@@ -165,6 +169,8 @@ int main()
     {
         GPIO_TOGGLE(A, 5);
         printf("Hello!\n");
+
+        wdg_feed();
 
         systick_delay(500);
     }
