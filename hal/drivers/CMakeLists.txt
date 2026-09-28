@@ -7,6 +7,7 @@ target_sources(drivers PRIVATE
     systick.c
     rcc.c
     flash.c
+    pwr.c
 )
 
 target_link_libraries(drivers

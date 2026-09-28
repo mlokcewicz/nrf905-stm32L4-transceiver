@@ -9,7 +9,7 @@
 
 //------------------------------------------------------------------------------
 
-void flash_set_latency(uint32_t latency)
+void flash_init(uint32_t latency)
 {
     FLASH->ACR = (FLASH->ACR & ~FLASH_ACR_LATENCY) | (latency & FLASH_ACR_LATENCY);
 

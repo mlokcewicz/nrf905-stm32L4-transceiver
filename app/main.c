@@ -12,6 +12,8 @@
 #include <systick.h>
 #include <rcc.h>
 #include <gpio.h>
+#include <flash.h>
+#include <pwr.h>
 
 //------------------------------------------------------------------------------
 
@@ -22,8 +24,11 @@ int main()
     /* SYSCLK = 4 MHz, source: MSI, AHB presc = /1 → HCLK = 4 MHz APB1/APB2 presc = /1 → PCLK1 = PCLK2 = 4 MHz */
     SystemInit();
 
+    /* Set voltage scalling range */
+    pwr_init(PWR_VOLTAGE_SCALING_RANGE1);
+
     /* Vcore range 1, HCLK <= 48 MHz */
-    flash_set_latency(FLASH_ACR_LATENCY_2WS);
+    flash_init(FLASH_ACR_LATENCY_2WS);
 
     /* SYSCLK = HCLK = PCLK1 = PCLK2 = 40 MHz, HSI on, LS on */
     struct rcc_config cfg = 
