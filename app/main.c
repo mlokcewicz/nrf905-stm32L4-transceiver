@@ -9,6 +9,8 @@
 
 #include <stm32l4xx.h>
 
+#include <systick.h>
+
 //------------------------------------------------------------------------------
 
 int main()
@@ -18,6 +20,8 @@ int main()
     /* SYSCLK = 4 MHz, source: MSI, AHB presc = /1 → HCLK = 4 MHz APB1/APB2 presc = /1 → PCLK1 = PCLK2 = 4 MHz */
     SystemInit();
     SystemCoreClockUpdate();
+
+    systick_init();
 
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
     while(!(RCC->AHB2ENR & RCC_AHB2ENR_GPIOAEN));
@@ -32,12 +36,24 @@ int main()
 
     while (1)
     {
-        GPIOA->BSRR = 1 << 5;
-        // Delay
-        GPIOA->BRR = 1 << 5;
+        GPIOA->ODR ^= 1 << 5;
+        systick_delay(500);
     }
 
     return 0;
 }
 
 //------------------------------------------------------------------------------
+
+/*
+CE = standby, (hi - on)
+TXE - (hi - tx, low - rx)
+PWR - (hi - on)
+DR - (hi - tx finished or new data received)
+SO - MISO
+SI - MOSI
+SCK - clock
+CSN - CS
+
+
+*/
