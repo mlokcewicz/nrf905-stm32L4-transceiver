@@ -64,7 +64,7 @@ do { \
     GPIO##port->ODR ^= 1 << pin; \
 } while (0) 
 
-#define GPIO_GET(port, pin) (GPIO##port->ODR & (1 << pin))
+#define GPIO_GET(port, pin) (GPIO##port->IDR & (1 << pin))
 
 //------------------------------------------------------------------------------
 
