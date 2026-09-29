@@ -21,7 +21,8 @@
 //------------------------------------------------------------------------------
 
 static struct usart_obj usart = {0};
-static struct spi_obj spi = {0};
+static struct spi_obj spi2 = {0};
+static struct spi_obj spi3 = {0};
 
 //------------------------------------------------------------------------------
 
@@ -108,20 +109,38 @@ static bool usart_io_init(void)
     return true;
 }
 
-static void spi_cs_write(bool state)
+static void spi2_cs_write(bool state)
 {
     GPIO_SET(B, 12, state);
 }
 
-static bool spi_io_init(void)
+static bool spi2_io_init(void)
 {
     GPIO_CONFIG(B, 13, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 SCK */
     GPIO_CONFIG(B, 14, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MISO */
     GPIO_CONFIG(B, 15, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MOSI */
 
     /* GPIOB clock is active; preload CS high before enabling its output. */
-    spi_cs_write(true);
+    spi2_cs_write(true);
     GPIO_CONFIG(B, 12, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
+    return true;
+}
+
+static void spi3_cs_write(bool state)
+{
+    GPIO_SET(C, 12, state);
+}
+
+static bool spi3_io_init(void)
+{
+    GPIO_CONFIG(C, 10, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 SCK */
+    GPIO_CONFIG(C, 11, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 MISO */
+    GPIO_CONFIG(C, 12, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 MOSI */
+
+    /* GPIOB clock is active; preload CS high before enabling its output. */
+    spi3_cs_write(true);
+    GPIO_CONFIG(C, 13, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
 
     return true;
 }
@@ -168,6 +187,9 @@ int main()
     /* Maximum IWDG timeout: 32.768 s at nominal LSI = 32 kHz. */
     wdg_init(IWDG_PRESCALER_256, 0x0FFFu);
 
+    /* LED */
+    GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
     struct usart_cfg usart_cfg =
     {
         .inst = USART_INSTANCE_2,
@@ -183,23 +205,80 @@ int main()
     if (!usart_init(&usart, &usart_cfg))
         return 1;
 
-    struct spi_cfg spi_cfg =
+    /* NRF 1 */    
+    struct spi_cfg spi_cfg2 =
     {
         .inst = SPI_INSTANCE_2,
         .clock_presc = SPI_CLOCK_PRESC_16,
         .data_size = SPI_DATASIZE_8_BIT,
-        .io_init = spi_io_init,
-        .cs_set = spi_cs_write,
+        .io_init = spi2_io_init,
+        .cs_set = spi2_cs_write,
         .cpol = false,
         .cpha = false,
         .lsb_first = false,
     };
 
-    if (!spi_init(&spi, &spi_cfg))
+    if (!spi_init(&spi2, &spi_cfg2))
         return 1;
 
-    GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    
+    GPIO_CONFIG(C, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 6, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 8, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 9, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
+    GPIO_SET(C, 5, true); 
+    GPIO_SET(C, 6, true); 
+    GPIO_SET(C, 8, false); 
+
+    /* Allow the nRF905 to enter standby after PWR_UP rises. */
+    systick_delay(3);
+
+    /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
+    uint8_t data_tx[] = {0b00010000, 0x00};
+    uint8_t data_rx[sizeof(data_tx)] = {0};
+
+    /* spi_transmit keeps CS low for the entire command and data transfer. */
+    spi_transmit(&spi2, data_rx, data_tx, sizeof(data_tx));
+
+    printf("nRF905 1 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx[0], (unsigned int)data_rx[1]);
+
+    /* NRF 2 */
+    struct spi_cfg spi_cfg3 =
+    {
+        .inst = SPI_INSTANCE_3,
+        .clock_presc = SPI_CLOCK_PRESC_16,
+        .data_size = SPI_DATASIZE_8_BIT,
+        .io_init = spi3_io_init,
+        .cs_set = spi3_cs_write,
+        .cpol = false,
+        .cpha = false,
+        .lsb_first = false,
+    };
+
+    if (!spi_init(&spi3, &spi_cfg3))
+        return 1;
+
+    GPIO_CONFIG(C, 0, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 1, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 2, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 3, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
+    GPIO_SET(C, 0, false); 
+    GPIO_SET(C, 1, true); 
+    GPIO_SET(C, 2, true); 
+
+    /* Allow the nRF905 to enter standby after PWR_UP rises. */
+    systick_delay(3);
+
+    /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
+    uint8_t data_tx3[] = {0b00010000, 0x00};
+    uint8_t data_rx3[sizeof(data_tx3)] = {0};
+
+    /* spi_transmit keeps CS low for the entire command and data transfer. */
+    spi_transmit(&spi3, data_rx3, data_tx3, sizeof(data_tx3));
+
+    printf("nRF905 2 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx3[0], (unsigned int)data_rx3[1]);
+
     while (1)
     {
         GPIO_TOGGLE(A, 5);
@@ -216,14 +295,28 @@ int main()
 //------------------------------------------------------------------------------
 
 /*
-CE = standby, (hi - on)
-TXE - (hi - tx, low - rx)
-PWR - (hi - on)
-DR - (hi - tx finished or new data received)
+nRF 1:
+CE = PC8 - standby, (hi - on)
+TXE - PC5 - (hi - tx, low - rx)
+PWR - PC6 - (hi - on)
+DR - PC9 (hi - tx finished or new data received)
 SO - MISO
 SI - MOSI
 SCK - clock
 CSN - CS
 
+nRF 2:
+
+CE = PC0 - standby, (hi - on)
+TXE - PC1 - (hi - tx, low - rx)
+PWR - PC2 - (hi - on)
+DR PC3- (hi - tx finished or new data received)
+
+
+
+SCK PC10
+MISO PC11
+MOSI PC12
+CS PC13
 
 */
