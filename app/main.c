@@ -18,11 +18,16 @@
 #include <usart.h>
 #include <spi.h>
 
+#include <nrf905.h>
+
 //------------------------------------------------------------------------------
 
 static struct usart_obj usart = {0};
 static struct spi_obj spi2 = {0};
 static struct spi_obj spi3 = {0};
+
+static struct nrf905_obj nrf905_1_obj;
+static struct nrf905_obj nrf905_2_obj;
 
 //------------------------------------------------------------------------------
 
@@ -127,6 +132,55 @@ static bool spi2_io_init(void)
     return true;
 }
 
+static bool nrf905_io_init_cb1(void)
+{
+    GPIO_CONFIG(C, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 6, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 8, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 9, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
+    return true;
+}
+
+static bool nrf905_spi_transmit_cb1(uint8_t *data_tx, uint8_t *data_rx, uint32_t len)
+{
+    spi_transmit(&spi2, data_rx, data_tx, len);
+    return true;
+}
+
+static bool nrf905_pin_set_cb1(enum nrf905_pin pin, bool state)
+{
+    switch (pin)
+    {
+        case NRF905_PIN_CS: spi_cs_set(&spi2, state); break;
+        case NRF905_PIN_PWR: GPIO_SET(C, 6, state); break;
+        case NRF905_PIN_CE: GPIO_SET(C, 8, state); break;
+        case NRF905_PIN_TXE: GPIO_SET(C, 5, state); break;
+        default: return false;
+    }
+
+    return true;
+}
+
+static bool nrf905_pin_get_cb1(enum nrf905_pin pin)
+{
+    switch (pin)
+    {
+        case NRF905_PIN_PWR: return GPIO_GET(C, 6);
+        case NRF905_PIN_CE: return GPIO_GET(C, 8);
+        case NRF905_PIN_TXE: return GPIO_GET(C, 5);
+        case NRF905_PIN_DRDY: return GPIO_GET(C, 9);
+        default: return false;
+    }
+
+    return true;
+}
+
+static bool nrf905_drdy_cb1(void)
+{
+    return true;
+}
+
 static void spi3_cs_write(bool state)
 {
     GPIO_SET(C, 12, state);
@@ -142,6 +196,60 @@ static bool spi3_io_init(void)
     spi3_cs_write(true);
     GPIO_CONFIG(C, 13, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
 
+    return true;
+}
+
+// CE = PC0 - standby, (hi - on)
+// TXE - PC1 - (hi - tx, low - rx)
+// PWR - PC2 - (hi - on)
+// DR PC3- (hi - tx finished or new data received)
+
+static bool nrf905_io_init_cb2(void)
+{
+    GPIO_CONFIG(C, 0, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 1, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 2, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(C, 3, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
+    return true;
+}
+
+static bool nrf905_spi_transmit_cb2(uint8_t *data_tx, uint8_t *data_rx, uint32_t len)
+{
+    spi_transmit(&spi3, data_rx, data_tx, len);
+    return true;
+}
+
+static bool nrf905_pin_set_cb2(enum nrf905_pin pin, bool state)
+{
+    switch (pin)
+    {
+        case NRF905_PIN_CS: spi_cs_set(&spi3, state); break;
+        case NRF905_PIN_PWR: GPIO_SET(C, 2, state); break;
+        case NRF905_PIN_CE: GPIO_SET(C, 0, state); break;
+        case NRF905_PIN_TXE: GPIO_SET(C, 1, state); break;
+        default: return false;
+    }
+
+    return true;
+}
+
+static bool nrf905_pin_get_cb2(enum nrf905_pin pin)
+{
+    switch (pin)
+    {
+        case NRF905_PIN_PWR: return GPIO_GET(C, 2);
+        case NRF905_PIN_CE: return GPIO_GET(C, 0);
+        case NRF905_PIN_TXE: return GPIO_GET(C, 1);
+        case NRF905_PIN_DRDY: return GPIO_GET(C, 3);
+        default: return false;
+    }
+
+    return true;
+}
+
+static bool nrf905_drdy_cb2(void)
+{
     return true;
 }
 
@@ -221,14 +329,17 @@ int main()
     if (!spi_init(&spi2, &spi_cfg2))
         return 1;
 
-    GPIO_CONFIG(C, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 6, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 8, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 9, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    struct nrf905_cfg nrf905_1_cfg = 
+    {
+        .io_init_cb = nrf905_io_init_cb1,
+        .spi_transmit_cb = nrf905_spi_transmit_cb1,
+        .pin_set_cb = nrf905_pin_set_cb1,
+        .pin_get_cb = nrf905_pin_get_cb1,
+        .drdy_cb = nrf905_drdy_cb1
+    };
 
-    GPIO_SET(C, 5, true); 
-    GPIO_SET(C, 6, true); 
-    GPIO_SET(C, 8, false); 
+    if (!nrf905_init(&nrf905_1_obj, &nrf905_1_cfg))
+        return 1;
 
     /* Allow the nRF905 to enter standby after PWR_UP rises. */
     systick_delay(3);
@@ -258,14 +369,17 @@ int main()
     if (!spi_init(&spi3, &spi_cfg3))
         return 1;
 
-    GPIO_CONFIG(C, 0, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 1, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 2, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 3, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    struct nrf905_cfg nrf905_2_cfg = 
+    {
+        .io_init_cb = nrf905_io_init_cb2,
+        .spi_transmit_cb = nrf905_spi_transmit_cb2,
+        .pin_set_cb = nrf905_pin_set_cb2,
+        .pin_get_cb = nrf905_pin_get_cb2,
+        .drdy_cb = nrf905_drdy_cb2
+    };
 
-    GPIO_SET(C, 0, false); 
-    GPIO_SET(C, 1, true); 
-    GPIO_SET(C, 2, true); 
+    if (!nrf905_init(&nrf905_2_obj, &nrf905_2_cfg))
+        return 1;
 
     /* Allow the nRF905 to enter standby after PWR_UP rises. */
     systick_delay(3);
