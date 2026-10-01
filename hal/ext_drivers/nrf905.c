@@ -33,7 +33,7 @@ enum nrf905_instruction
 bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg)
 {
     if (!obj || !cfg || !cfg->io_init_cb || !cfg->spi_transmit_cb ||
-        !cfg->pin_set_cb || !cfg->pin_get_cb || !cfg->drdy_cb)
+        !cfg->pin_set_cb || !cfg->pin_get_cb)
         return false;
 
     obj->io_init_cb = cfg->io_init_cb;

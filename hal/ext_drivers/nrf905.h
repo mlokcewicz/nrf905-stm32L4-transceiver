@@ -95,7 +95,6 @@ struct nrf905_cfg
     nrf905_spi_transmit_cb spi_transmit_cb;
     nrf905_pin_set_cb pin_set_cb;
     nrf905_pin_get_cb pin_get_cb;
-    nrf905_drdy_cb drdy_cb;
 
     uint16_t ch_no;
     enum nrf905_pll_freq pll_freq;
@@ -120,7 +119,6 @@ struct nrf905_obj
     nrf905_spi_transmit_cb spi_transmit_cb;
     nrf905_pin_set_cb pin_set_cb;
     nrf905_pin_get_cb pin_get_cb;
-    nrf905_drdy_cb drdy_cb;
 };
 
 //------------------------------------------------------------------------------
