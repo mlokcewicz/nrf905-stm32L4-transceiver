@@ -87,7 +87,7 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg)
 
 uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
 {
-    if (!obj || !data_tx || !data_rx || len == 0)
+    if (!obj || len == 0)
         return 0;
 
     SPI_TypeDef *base = spi_base[obj->inst];
@@ -99,11 +99,13 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
     {
         while (!(base->SR & SPI_SR_TXE)) {};
         
-        *(volatile uint8_t *)&base->DR = data_tx[pos];
+        *(volatile uint8_t *)&base->DR = data_tx ? data_tx[pos] : 0;
         
         while (!(base->SR & SPI_SR_RXNE)) {};
 
-        data_rx[pos] = *(volatile uint8_t *)&base->DR;
+        uint8_t rx = *(volatile uint8_t *)&base->DR;
+
+        if (data_rx) data_rx[pos] = rx;
         
         pos++;
     }
