@@ -26,6 +26,123 @@
 #include <nrf905.h>
 
 //------------------------------------------------------------------------------
+/* Board pin assignments */
+#define HAL_UART_TX_PORT                   A
+#define HAL_UART_TX_PIN                    2
+#define HAL_UART_RX_PORT                   A
+#define HAL_UART_RX_PIN                    3
+#define HAL_NRF1_SCK_PORT                  B
+#define HAL_NRF1_SCK_PIN                   13
+#define HAL_NRF1_MISO_PORT                 B
+#define HAL_NRF1_MISO_PIN                  14
+#define HAL_NRF1_MOSI_PORT                 B
+#define HAL_NRF1_MOSI_PIN                  15
+#define HAL_NRF1_CS_PORT                   B
+#define HAL_NRF1_CS_PIN                    12
+#define HAL_NRF2_SCK_PORT                  C
+#define HAL_NRF2_SCK_PIN                   10
+#define HAL_NRF2_MISO_PORT                 C
+#define HAL_NRF2_MISO_PIN                  11
+#define HAL_NRF2_MOSI_PORT                 C
+#define HAL_NRF2_MOSI_PIN                  12
+#define HAL_NRF2_CS_PORT                   C
+#define HAL_NRF2_CS_PIN                    13
+#define HAL_NRF1_TXE_PORT                  C
+#define HAL_NRF1_TXE_PIN                   5
+#define HAL_NRF1_PWR_PORT                  C
+#define HAL_NRF1_PWR_PIN                   6
+#define HAL_NRF1_CE_PORT                   C
+#define HAL_NRF1_CE_PIN                    8
+#define HAL_NRF1_DR_PORT                   C
+#define HAL_NRF1_DR_PIN                    9
+#define HAL_NRF2_CE_PORT                   C
+#define HAL_NRF2_CE_PIN                    0
+#define HAL_NRF2_TXE_PORT                  C
+#define HAL_NRF2_TXE_PIN                   1
+#define HAL_NRF2_PWR_PORT                  C
+#define HAL_NRF2_PWR_PIN                   2
+#define HAL_NRF2_DR_PORT                   C
+#define HAL_NRF2_DR_PIN                    3
+#define HAL_LED_PORT                       A
+#define HAL_LED_PIN                        5
+
+/* GPIO alternate functions */
+#define HAL_UART_AF                        7
+#define HAL_NRF1_AF                        5
+#define HAL_NRF2_AF                        6
+#define HAL_GPIO_AF_UNUSED                 0
+
+/* Clock tree and watchdog */
+#define HAL_IRQ_PRIORITY_GROUPING          0x00000003U
+#define HAL_VOLTAGE_SCALING                PWR_VOLTAGE_SCALING_RANGE1
+#define HAL_FLASH_LATENCY                  FLASH_ACR_LATENCY_2WS
+#define HAL_WDG_PRESCALER                  IWDG_PRESCALER_256
+#define HAL_WDG_RELOAD                     0x0FFFu
+#define HAL_LSI_ON                         true
+#define HAL_HSI_ON                         true
+#define HAL_HSE_ON                         false
+#define HAL_PLL_ON                         true
+#define HAL_PLL_M                          RCC_PLLM_DIV2
+#define HAL_PLL_N                          10
+#define HAL_PLL_R                          RCC_PLLR_DIV2
+#define HAL_PLL_R_ENABLE                   true
+#define HAL_PLL_SOURCE                     RCC_PLLCFGR_PLLSRC_HSI
+#define HAL_AHB_PRESCALER                  RCC_CFGR_HPRE_DIV1
+#define HAL_APB1_PRESCALER                 RCC_CFGR_PPRE1_DIV1
+#define HAL_APB2_PRESCALER                 RCC_CFGR_PPRE2_DIV1
+#define HAL_SYSCLK_SOURCE                  RCC_CFGR_SW_PLL
+
+/* USART configuration */
+#define HAL_UART_INSTANCE                  USART_INSTANCE_2
+#define HAL_UART_RX_TX                     (USART_TX_ENABLE | USART_RX_ENABLE)
+#define HAL_UART_DATA_SIZE                 USART_DATASIZE_8_BIT
+#define HAL_UART_PARITY                    USART_PARITY_DISABLED
+#define HAL_UART_STOP_BITS                 USART_STOP_BITS_1
+#define HAL_UART_OVERSAMPLING              USART_OVERSAMPLING_16
+#define HAL_UART_BAUDRATE                  115200
+
+/* Radio SPI configuration */
+#define HAL_NRF1_SPI_INSTANCE              SPI_INSTANCE_2
+#define HAL_NRF2_SPI_INSTANCE              SPI_INSTANCE_3
+#define HAL_SPI_PRESCALER                  SPI_CLOCK_PRESC_16
+#define HAL_SPI_DATA_SIZE                  SPI_DATASIZE_8_BIT
+#define HAL_SPI_CPOL                       false
+#define HAL_SPI_CPHA                       false
+#define HAL_SPI_LSB_FIRST                  false
+
+/* Shared radio configuration */
+#define HAL_RADIO_CHANNEL                  108
+#define HAL_RADIO_BAND                     NRF905_PLL_FREQ_433_MHZ
+#define HAL_RADIO_TX_POWER                 NRF905_PA_PWR_10_DBM
+#define HAL_RADIO_RX_REDUCED_POWER         false
+#define HAL_RADIO_AUTO_RETRANSMIT          false
+#define HAL_RADIO_RX_ADDRESS_WIDTH         NRF905_ADDR_WIDTH_4_BYTE
+#define HAL_RADIO_TX_ADDRESS_WIDTH         NRF905_ADDR_WIDTH_4_BYTE
+#define HAL_RADIO_RX_PAYLOAD_SIZE          32
+#define HAL_RADIO_TX_PAYLOAD_SIZE          32
+#define HAL_RADIO_RX_ADDRESS               0xDDCCBBAA
+#define HAL_RADIO_OUTPUT_CLOCK_FREQ        NRF905_UP_CLK_FREQ_4_MHZ
+#define HAL_RADIO_OUTPUT_CLOCK_ENABLE      false
+#define HAL_RADIO_CRYSTAL_FREQ             NRF905_XOF_16_MHZ
+#define HAL_RADIO_CRC_ENABLE               true
+#define HAL_RADIO_CRC_16_BIT               true
+
+/* Radio diagnostics */
+#define HAL_RADIO_STARTUP_DELAY_MS         3
+#define HAL_RADIO_TEST_DELAY_MS            1000
+#define HAL_RADIO_READ_CONFIG_0            0b00010000
+#define HAL_SPI_DUMMY_BYTE                 0x00
+#define HAL_RADIO_TEST_PAYLOAD             "nRF905 radio trx test msg!"
+#define HAL_RADIO_TEST_TX_ADDRESS          HAL_RADIO_RX_ADDRESS
+
+
+
+//------------------------------------------------------------------------------
+/* Hardware definitions */
+
+// tu
+
+//------------------------------------------------------------------------------
 /* Static objects */
 
 static struct usart_obj usart = {0};
@@ -121,44 +238,44 @@ int __io_putchar(int ch)
 
 static bool usart_io_init(void)
 {
-    GPIO_CONFIG(A, 2, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
-    GPIO_CONFIG(A, 3, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 7);
+    GPIO_CONFIG(HAL_UART_TX_PORT, HAL_UART_TX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
+    GPIO_CONFIG(HAL_UART_RX_PORT, HAL_UART_RX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
 
     return true;
 }
 
 static void spi2_cs_write(bool state)
 {
-    GPIO_SET(B, 12, state);
+    GPIO_SET(HAL_NRF1_CS_PORT, HAL_NRF1_CS_PIN, state);
 }
 
 static bool spi2_io_init(void)
 {
-    GPIO_CONFIG(B, 13, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 SCK */
-    GPIO_CONFIG(B, 14, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MISO */
-    GPIO_CONFIG(B, 15, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 5); /* SPI2 MOSI */
+    GPIO_CONFIG(HAL_NRF1_SCK_PORT, HAL_NRF1_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 SCK */
+    GPIO_CONFIG(HAL_NRF1_MISO_PORT, HAL_NRF1_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 MISO */
+    GPIO_CONFIG(HAL_NRF1_MOSI_PORT, HAL_NRF1_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 MOSI */
 
     /* GPIOB clock is active; preload CS high before enabling its output. */
     spi2_cs_write(true);
-    GPIO_CONFIG(B, 12, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_NRF1_CS_PORT, HAL_NRF1_CS_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
 
     return true;
 }
 
 static void spi3_cs_write(bool state)
 {
-    GPIO_SET(C, 13, state);
+    GPIO_SET(HAL_NRF2_CS_PORT, HAL_NRF2_CS_PIN, state);
 }
 
 static bool spi3_io_init(void)
 {
-    GPIO_CONFIG(C, 10, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 SCK */
-    GPIO_CONFIG(C, 11, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 MISO */
-    GPIO_CONFIG(C, 12, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, 6); /* SPI3 MOSI */
+    GPIO_CONFIG(HAL_NRF2_SCK_PORT, HAL_NRF2_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 SCK */
+    GPIO_CONFIG(HAL_NRF2_MISO_PORT, HAL_NRF2_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 MISO */
+    GPIO_CONFIG(HAL_NRF2_MOSI_PORT, HAL_NRF2_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 MOSI */
 
     /* GPIOB clock is active; preload CS high before enabling its output. */
     spi3_cs_write(true);
-    GPIO_CONFIG(C, 13, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_NRF2_CS_PORT, HAL_NRF2_CS_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
 
     return true;
 }
@@ -168,10 +285,10 @@ static bool spi3_io_init(void)
 
 static bool nrf905_io_init_cb1(void)
 {
-    GPIO_CONFIG(C, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 6, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 8, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 9, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_NRF1_TXE_PORT, HAL_NRF1_TXE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF1_PWR_PORT, HAL_NRF1_PWR_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF1_CE_PORT, HAL_NRF1_CE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF1_DR_PORT, HAL_NRF1_DR_PIN, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
 
     return true;
 }
@@ -187,9 +304,9 @@ static bool nrf905_pin_set_cb1(enum nrf905_pin pin, bool state)
     switch (pin)
     {
         case NRF905_PIN_CS: spi_cs_set(&spi2, state); break;
-        case NRF905_PIN_PWR: GPIO_SET(C, 6, state); break;
-        case NRF905_PIN_CE: GPIO_SET(C, 8, state); break;
-        case NRF905_PIN_TXE: GPIO_SET(C, 5, state); break;
+        case NRF905_PIN_PWR: GPIO_SET(HAL_NRF1_PWR_PORT, HAL_NRF1_PWR_PIN, state); break;
+        case NRF905_PIN_CE: GPIO_SET(HAL_NRF1_CE_PORT, HAL_NRF1_CE_PIN, state); break;
+        case NRF905_PIN_TXE: GPIO_SET(HAL_NRF1_TXE_PORT, HAL_NRF1_TXE_PIN, state); break;
         default: return false;
     }
 
@@ -200,10 +317,10 @@ static bool nrf905_pin_get_cb1(enum nrf905_pin pin)
 {
     switch (pin)
     {
-        case NRF905_PIN_PWR: return GPIO_GET(C, 6);
-        case NRF905_PIN_CE: return GPIO_GET(C, 8);
-        case NRF905_PIN_TXE: return GPIO_GET(C, 5);
-        case NRF905_PIN_DRDY: return GPIO_GET(C, 9);
+        case NRF905_PIN_PWR: return GPIO_GET(HAL_NRF1_PWR_PORT, HAL_NRF1_PWR_PIN);
+        case NRF905_PIN_CE: return GPIO_GET(HAL_NRF1_CE_PORT, HAL_NRF1_CE_PIN);
+        case NRF905_PIN_TXE: return GPIO_GET(HAL_NRF1_TXE_PORT, HAL_NRF1_TXE_PIN);
+        case NRF905_PIN_DRDY: return GPIO_GET(HAL_NRF1_DR_PORT, HAL_NRF1_DR_PIN);
         default: return false;
     }
 
@@ -212,10 +329,10 @@ static bool nrf905_pin_get_cb1(enum nrf905_pin pin)
 
 static bool nrf905_io_init_cb2(void)
 {
-    GPIO_CONFIG(C, 0, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 1, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 2, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(C, 3, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_NRF2_CE_PORT, HAL_NRF2_CE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF2_TXE_PORT, HAL_NRF2_TXE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF2_PWR_PORT, HAL_NRF2_PWR_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF2_DR_PORT, HAL_NRF2_DR_PIN, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
 
     return true;
 }
@@ -231,9 +348,9 @@ static bool nrf905_pin_set_cb2(enum nrf905_pin pin, bool state)
     switch (pin)
     {
         case NRF905_PIN_CS: spi_cs_set(&spi3, state); break;
-        case NRF905_PIN_PWR: GPIO_SET(C, 2, state); break;
-        case NRF905_PIN_CE: GPIO_SET(C, 0, state); break;
-        case NRF905_PIN_TXE: GPIO_SET(C, 1, state); break;
+        case NRF905_PIN_PWR: GPIO_SET(HAL_NRF2_PWR_PORT, HAL_NRF2_PWR_PIN, state); break;
+        case NRF905_PIN_CE: GPIO_SET(HAL_NRF2_CE_PORT, HAL_NRF2_CE_PIN, state); break;
+        case NRF905_PIN_TXE: GPIO_SET(HAL_NRF2_TXE_PORT, HAL_NRF2_TXE_PIN, state); break;
         default: return false;
     }
 
@@ -244,10 +361,10 @@ static bool nrf905_pin_get_cb2(enum nrf905_pin pin)
 {
     switch (pin)
     {
-        case NRF905_PIN_PWR: return GPIO_GET(C, 2);
-        case NRF905_PIN_CE: return GPIO_GET(C, 0);
-        case NRF905_PIN_TXE: return GPIO_GET(C, 1);
-        case NRF905_PIN_DRDY: return GPIO_GET(C, 3);
+        case NRF905_PIN_PWR: return GPIO_GET(HAL_NRF2_PWR_PORT, HAL_NRF2_PWR_PIN);
+        case NRF905_PIN_CE: return GPIO_GET(HAL_NRF2_CE_PORT, HAL_NRF2_CE_PIN);
+        case NRF905_PIN_TXE: return GPIO_GET(HAL_NRF2_TXE_PORT, HAL_NRF2_TXE_PIN);
+        case NRF905_PIN_DRDY: return GPIO_GET(HAL_NRF2_DR_PORT, HAL_NRF2_DR_PIN);
         default: return false;
     }
 
@@ -280,32 +397,32 @@ CS - PC13
 
 bool hal_init(void)
 {
-    NVIC_SetPriorityGrouping(0x00000003U);
+    NVIC_SetPriorityGrouping(HAL_IRQ_PRIORITY_GROUPING);
     
     SystemInit();
 
     /* Set voltage scalling range */
-    pwr_init(PWR_VOLTAGE_SCALING_RANGE1);
+    pwr_init(HAL_VOLTAGE_SCALING);
 
     /* Vcore range 1, HCLK <= 48 MHz */
-    flash_init(FLASH_ACR_LATENCY_2WS);
+    flash_init(HAL_FLASH_LATENCY);
 
     /* SYSCLK = HCLK = PCLK1 = PCLK2 = 40 MHz, HSI on, LS on */
     struct rcc_config cfg = 
     {
-        .lsi_on = true,
-        .hsi_on = true,
-        .hse_on = false,
-        .pll.main_pll_on = true,
-        .pll.pllm = RCC_PLLM_DIV2,
-        .pll.plln = 10,
-        .pll.pllr = RCC_PLLR_DIV2,
-        .pll.pllren = true,
-        .pll.pllsrc = RCC_PLLCFGR_PLLSRC_HSI,
-        .ahb_presc = RCC_CFGR_HPRE_DIV1,
-        .apb1_presc = RCC_CFGR_PPRE1_DIV1,
-        .apb2_presc = RCC_CFGR_PPRE2_DIV1,
-        .sysclk_source = RCC_CFGR_SW_PLL,
+        .lsi_on = HAL_LSI_ON,
+        .hsi_on = HAL_HSI_ON,
+        .hse_on = HAL_HSE_ON,
+        .pll.main_pll_on = HAL_PLL_ON,
+        .pll.pllm = HAL_PLL_M,
+        .pll.plln = HAL_PLL_N,
+        .pll.pllr = HAL_PLL_R,
+        .pll.pllren = HAL_PLL_R_ENABLE,
+        .pll.pllsrc = HAL_PLL_SOURCE,
+        .ahb_presc = HAL_AHB_PRESCALER,
+        .apb1_presc = HAL_APB1_PRESCALER,
+        .apb2_presc = HAL_APB2_PRESCALER,
+        .sysclk_source = HAL_SYSCLK_SOURCE,
     };
 
     rcc_init(&cfg);
@@ -315,20 +432,20 @@ bool hal_init(void)
     systick_init();
 
     /* Maximum IWDG timeout: 32.768 s at nominal LSI = 32 kHz. */
-    wdg_init(IWDG_PRESCALER_256, 0x0FFFu);
+    wdg_init(HAL_WDG_PRESCALER, HAL_WDG_RELOAD);
 
     /* LED */
-    GPIO_CONFIG(A, 5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_LED_PORT, HAL_LED_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
 
     struct usart_cfg usart_cfg =
     {
-        .inst = USART_INSTANCE_2,
-        .rx_tx = USART_TX_ENABLE | USART_RX_ENABLE,
-        .data_size = USART_DATASIZE_8_BIT,
-        .parity = USART_PARITY_DISABLED,
-        .stop_bits = USART_STOP_BITS_1,
-        .oversampling = USART_OVERSAMPLING_16,
-        .baudrate = 115200,
+        .inst = HAL_UART_INSTANCE,
+        .rx_tx = HAL_UART_RX_TX,
+        .data_size = HAL_UART_DATA_SIZE,
+        .parity = HAL_UART_PARITY,
+        .stop_bits = HAL_UART_STOP_BITS,
+        .oversampling = HAL_UART_OVERSAMPLING,
+        .baudrate = HAL_UART_BAUDRATE,
         .io_init = usart_io_init,
     };
 
@@ -338,14 +455,14 @@ bool hal_init(void)
     /* NRF 1 */    
     struct spi_cfg spi_cfg2 =
     {
-        .inst = SPI_INSTANCE_2,
-        .clock_presc = SPI_CLOCK_PRESC_16,
-        .data_size = SPI_DATASIZE_8_BIT,
+        .inst = HAL_NRF1_SPI_INSTANCE,
+        .clock_presc = HAL_SPI_PRESCALER,
+        .data_size = HAL_SPI_DATA_SIZE,
         .io_init = spi2_io_init,
         .cs_set = spi2_cs_write,
-        .cpol = false,
-        .cpha = false,
-        .lsb_first = false,
+        .cpol = HAL_SPI_CPOL,
+        .cpha = HAL_SPI_CPHA,
+        .lsb_first = HAL_SPI_LSB_FIRST,
     };
 
     if (!spi_init(&spi2, &spi_cfg2))
@@ -358,31 +475,31 @@ bool hal_init(void)
         .pin_set_cb = nrf905_pin_set_cb1,
         .pin_get_cb = nrf905_pin_get_cb1,
 
-        .ch_no = 108,
-        .pll_freq = NRF905_PLL_FREQ_433_MHZ,
-        .pa_pwr = NRF905_PA_PWR_10_DBM,
-        .rx_red_pwr = false,
-        .auto_retran = false,
-        .rx_afw = NRF905_ADDR_WIDTH_4_BYTE,
-        .tx_afw = NRF905_ADDR_WIDTH_4_BYTE,
-        .rx_pw = 8,
-        .tx_pw = 8,
-        .rx_addr = 0xDDCCBBAA,
-        .up_clk_freq = NRF905_UP_CLK_FREQ_4_MHZ,
-        .up_clk_en = false,
-        .xof = NRF905_XOF_16_MHZ,
-        .crc_en = true,
-        .crc_16 = true,
+        .ch_no = HAL_RADIO_CHANNEL,
+        .pll_freq = HAL_RADIO_BAND,
+        .pa_pwr = HAL_RADIO_TX_POWER,
+        .rx_red_pwr = HAL_RADIO_RX_REDUCED_POWER,
+        .auto_retran = HAL_RADIO_AUTO_RETRANSMIT,
+        .rx_afw = HAL_RADIO_RX_ADDRESS_WIDTH,
+        .tx_afw = HAL_RADIO_TX_ADDRESS_WIDTH,
+        .rx_pw = HAL_RADIO_RX_PAYLOAD_SIZE,
+        .tx_pw = HAL_RADIO_TX_PAYLOAD_SIZE,
+        .rx_addr = HAL_RADIO_RX_ADDRESS,
+        .up_clk_freq = HAL_RADIO_OUTPUT_CLOCK_FREQ,
+        .up_clk_en = HAL_RADIO_OUTPUT_CLOCK_ENABLE,
+        .xof = HAL_RADIO_CRYSTAL_FREQ,
+        .crc_en = HAL_RADIO_CRC_ENABLE,
+        .crc_16 = HAL_RADIO_CRC_16_BIT,
     };
 
     if (!nrf905_init(&nrf905_1_obj, &nrf905_1_cfg))
         return false;
 
     /* Allow the nRF905 to enter standby after PWR_UP rises. */
-    systick_delay(3);
+    systick_delay(HAL_RADIO_STARTUP_DELAY_MS);
 
     /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
-    uint8_t data_tx[] = {0b00010000, 0x00};
+    uint8_t data_tx[] = {HAL_RADIO_READ_CONFIG_0, HAL_SPI_DUMMY_BYTE};
     uint8_t data_rx[sizeof(data_tx)] = {0};
 
     /* spi_transmit keeps CS low for the entire command and data transfer. */
@@ -393,14 +510,14 @@ bool hal_init(void)
     /* NRF 2 */
     struct spi_cfg spi_cfg3 =
     {
-        .inst = SPI_INSTANCE_3,
-        .clock_presc = SPI_CLOCK_PRESC_16,
-        .data_size = SPI_DATASIZE_8_BIT,
+        .inst = HAL_NRF2_SPI_INSTANCE,
+        .clock_presc = HAL_SPI_PRESCALER,
+        .data_size = HAL_SPI_DATA_SIZE,
         .io_init = spi3_io_init,
         .cs_set = spi3_cs_write,
-        .cpol = false,
-        .cpha = false,
-        .lsb_first = false,
+        .cpol = HAL_SPI_CPOL,
+        .cpha = HAL_SPI_CPHA,
+        .lsb_first = HAL_SPI_LSB_FIRST,
     };
 
     if (!spi_init(&spi3, &spi_cfg3))
@@ -413,31 +530,31 @@ bool hal_init(void)
         .pin_set_cb = nrf905_pin_set_cb2,
         .pin_get_cb = nrf905_pin_get_cb2,
 
-        .ch_no = 108,
-        .pll_freq = NRF905_PLL_FREQ_433_MHZ,
-        .pa_pwr = NRF905_PA_PWR_10_DBM,
-        .rx_red_pwr = false,
-        .auto_retran = false,
-        .rx_afw = NRF905_ADDR_WIDTH_4_BYTE,
-        .tx_afw = NRF905_ADDR_WIDTH_4_BYTE,
-        .rx_pw = 8,
-        .tx_pw = 8,
-        .rx_addr = 0xDDCCBBAA,
-        .up_clk_freq = NRF905_UP_CLK_FREQ_4_MHZ,
-        .up_clk_en = false,
-        .xof = NRF905_XOF_16_MHZ,
-        .crc_en = true,
-        .crc_16 = true,
+        .ch_no = HAL_RADIO_CHANNEL,
+        .pll_freq = HAL_RADIO_BAND,
+        .pa_pwr = HAL_RADIO_TX_POWER,
+        .rx_red_pwr = HAL_RADIO_RX_REDUCED_POWER,
+        .auto_retran = HAL_RADIO_AUTO_RETRANSMIT,
+        .rx_afw = HAL_RADIO_RX_ADDRESS_WIDTH,
+        .tx_afw = HAL_RADIO_TX_ADDRESS_WIDTH,
+        .rx_pw = HAL_RADIO_RX_PAYLOAD_SIZE,
+        .tx_pw = HAL_RADIO_TX_PAYLOAD_SIZE,
+        .rx_addr = HAL_RADIO_RX_ADDRESS,
+        .up_clk_freq = HAL_RADIO_OUTPUT_CLOCK_FREQ,
+        .up_clk_en = HAL_RADIO_OUTPUT_CLOCK_ENABLE,
+        .xof = HAL_RADIO_CRYSTAL_FREQ,
+        .crc_en = HAL_RADIO_CRC_ENABLE,
+        .crc_16 = HAL_RADIO_CRC_16_BIT,
     };
 
     if (!nrf905_init(&nrf905_2_obj, &nrf905_2_cfg))
         return false;
 
     /* Allow the nRF905 to enter standby after PWR_UP rises. */
-    systick_delay(3);
+    systick_delay(HAL_RADIO_STARTUP_DELAY_MS);
 
     /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
-    uint8_t data_tx3[] = {0b00010000, 0x00};
+    uint8_t data_tx3[] = {HAL_RADIO_READ_CONFIG_0, HAL_SPI_DUMMY_BYTE};
     uint8_t data_rx3[sizeof(data_tx3)] = {0};
 
     /* spi_transmit keeps CS low for the entire command and data transfer. */
@@ -452,26 +569,27 @@ void hal_radio_test(void)
 {
      nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
     
-    unsigned char payload[9] = "RADIOMSG";
-    uint32_t tx_addr = 0xDDCCBBAA;
+    unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
+    uint8_t payload_len = strlen((char*)payload);
+    uint32_t tx_addr = HAL_RADIO_TEST_TX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_1_obj);
-    nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, strlen((char*)payload));   
+    nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, payload_len);   
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
     
-    systick_delay(1000);
+    systick_delay(HAL_RADIO_TEST_DELAY_MS);
     
     enum nrf905_status status2 = 0;
     nrf905_get_status(&nrf905_2_obj, &status2);
     printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_2_obj);
     
-    uint8_t received_data[9] = {0};
-    nrf905_get_rx_data(&nrf905_2_obj, received_data, sizeof(received_data));
+    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = {0};
+    nrf905_get_rx_data(&nrf905_2_obj, received_data, payload_len);
     printf("Received data: %s, on %p\n", received_data, &nrf905_2_obj);
 }
 
 void hal_led_toggle(void)
 {
-    GPIO_TOGGLE(A, 5);
+    GPIO_TOGGLE(HAL_LED_PORT, HAL_LED_PIN);
 }
 
 void hal_wdg_feed(void)

@@ -37,7 +37,15 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
-#define GPIO_CONFIG(port, pin, mode, otype, ospeed, pupd, af) \
+/* Expand port/pin macros before the implementation performs token pasting.
+ * Accepts literal tokens (C, 5) or macros expanding to those tokens.
+ */
+#define GPIO_CONFIG(port, pin, mode, otype, ospeed, pupd, af) GPIO_CONFIG_IMPL(port, pin, mode, otype, ospeed, pupd, af)
+#define GPIO_SET(port, pin, state) GPIO_SET_IMPL(port, pin, state)
+#define GPIO_GET(port, pin) GPIO_GET_IMPL(port, pin)
+#define GPIO_TOGGLE(port, pin) GPIO_TOGGLE_IMPL(port, pin)
+
+#define GPIO_CONFIG_IMPL(port, pin, mode, otype, ospeed, pupd, af) \
 do { \
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##port##EN;   \
     while(!(RCC->AHB2ENR & RCC_AHB2ENR_GPIO##port##EN)); \
@@ -54,17 +62,17 @@ do { \
         GPIO##port->AFR[(pin) / 8U] |=  ((af) << (((pin) % 8U) * (GPIO_AFRL_AFSEL1_Pos - GPIO_AFRL_AFSEL0_Pos))); } \
 } while (0) 
 
-#define GPIO_SET(port, pin, state) \
+#define GPIO_SET_IMPL(port, pin, state) \
 do { \
     state ? (GPIO##port->BSRR = 1 << pin) : (GPIO##port->BRR = 1 << pin); \
 } while (0) 
 
-#define GPIO_TOGGLE(port, pin) \
+#define GPIO_TOGGLE_IMPL(port, pin) \
 do { \
     GPIO##port->ODR ^= 1 << pin; \
 } while (0) 
 
-#define GPIO_GET(port, pin) (GPIO##port->IDR & (1 << pin))
+#define GPIO_GET_IMPL(port, pin) (GPIO##port->IDR & (1 << pin))
 
 //------------------------------------------------------------------------------
 
