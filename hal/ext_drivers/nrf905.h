@@ -86,7 +86,6 @@ typedef bool (*nrf905_io_init_cb)(void);
 typedef bool (*nrf905_spi_transmit_cb)(uint8_t *data_tx, uint8_t *data_rx, uint32_t len);
 typedef bool (*nrf905_pin_set_cb)(enum nrf905_pin pin, bool state);
 typedef bool (*nrf905_pin_get_cb)(enum nrf905_pin pin);
-typedef bool (*nrf905_drdy_cb)(void);
 
 //------------------------------------------------------------------------------
 

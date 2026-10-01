@@ -177,11 +177,6 @@ static bool nrf905_pin_get_cb1(enum nrf905_pin pin)
     return true;
 }
 
-static bool nrf905_drdy_cb1(void)
-{
-    return true;
-}
-
 static void spi3_cs_write(bool state)
 {
     GPIO_SET(C, 13, state);
@@ -246,11 +241,6 @@ static bool nrf905_pin_get_cb2(enum nrf905_pin pin)
         default: return false;
     }
 
-    return true;
-}
-
-static bool nrf905_drdy_cb2(void)
-{
     return true;
 }
 
@@ -336,7 +326,6 @@ int main()
         .spi_transmit_cb = nrf905_spi_transmit_cb1,
         .pin_set_cb = nrf905_pin_set_cb1,
         .pin_get_cb = nrf905_pin_get_cb1,
-        .drdy_cb = nrf905_drdy_cb1,
 
         .ch_no = 108,
         .pll_freq = NRF905_PLL_FREQ_433_MHZ,
@@ -392,7 +381,6 @@ int main()
         .spi_transmit_cb = nrf905_spi_transmit_cb2,
         .pin_set_cb = nrf905_pin_set_cb2,
         .pin_get_cb = nrf905_pin_get_cb2,
-        .drdy_cb = nrf905_drdy_cb2,
 
         .ch_no = 108,
         .pll_freq = NRF905_PLL_FREQ_433_MHZ,

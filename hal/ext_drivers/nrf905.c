@@ -40,7 +40,6 @@ bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg)
     obj->spi_transmit_cb = cfg->spi_transmit_cb;
     obj->pin_set_cb = cfg->pin_set_cb;
     obj->pin_get_cb = cfg->pin_get_cb;
-    obj->drdy_cb = cfg->drdy_cb;
 
     if (!obj->io_init_cb())
         return false;
