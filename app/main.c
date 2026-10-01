@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <string.h>
 
 #include <stm32l4xx.h>
 
@@ -183,7 +184,7 @@ static bool nrf905_drdy_cb1(void)
 
 static void spi3_cs_write(bool state)
 {
-    GPIO_SET(C, 12, state);
+    GPIO_SET(C, 13, state);
 }
 
 static bool spi3_io_init(void)
@@ -335,7 +336,23 @@ int main()
         .spi_transmit_cb = nrf905_spi_transmit_cb1,
         .pin_set_cb = nrf905_pin_set_cb1,
         .pin_get_cb = nrf905_pin_get_cb1,
-        .drdy_cb = nrf905_drdy_cb1
+        .drdy_cb = nrf905_drdy_cb1,
+
+        .ch_no = 108,
+        .pll_freq = NRF905_PLL_FREQ_433_MHZ,
+        .pa_pwr = NRF905_PA_PWR_10_DBM,
+        .rx_red_pwr = false,
+        .auto_retran = false,
+        .rx_afw = NRF905_ADDR_WIDTH_4_BYTE,
+        .tx_afw = NRF905_ADDR_WIDTH_4_BYTE,
+        .rx_pw = 8,
+        .tx_pw = 8,
+        .rx_addr = 0xDDCCBBAA,
+        .up_clk_freq = NRF905_UP_CLK_FREQ_4_MHZ,
+        .up_clk_en = false,
+        .xof = NRF905_XOF_16_MHZ,
+        .crc_en = true,
+        .crc_16 = true,
     };
 
     if (!nrf905_init(&nrf905_1_obj, &nrf905_1_cfg))
@@ -375,7 +392,23 @@ int main()
         .spi_transmit_cb = nrf905_spi_transmit_cb2,
         .pin_set_cb = nrf905_pin_set_cb2,
         .pin_get_cb = nrf905_pin_get_cb2,
-        .drdy_cb = nrf905_drdy_cb2
+        .drdy_cb = nrf905_drdy_cb2,
+
+        .ch_no = 108,
+        .pll_freq = NRF905_PLL_FREQ_433_MHZ,
+        .pa_pwr = NRF905_PA_PWR_10_DBM,
+        .rx_red_pwr = false,
+        .auto_retran = false,
+        .rx_afw = NRF905_ADDR_WIDTH_4_BYTE,
+        .tx_afw = NRF905_ADDR_WIDTH_4_BYTE,
+        .rx_pw = 8,
+        .tx_pw = 8,
+        .rx_addr = 0xDDCCBBAA,
+        .up_clk_freq = NRF905_UP_CLK_FREQ_4_MHZ,
+        .up_clk_en = false,
+        .xof = NRF905_XOF_16_MHZ,
+        .crc_en = true,
+        .crc_16 = true,
     };
 
     if (!nrf905_init(&nrf905_2_obj, &nrf905_2_cfg))
@@ -393,10 +426,28 @@ int main()
 
     printf("nRF905 2 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx3[0], (unsigned int)data_rx3[1]);
 
+    nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
+    
+    unsigned char payload[9] = "RADIOMSG";
+    uint32_t tx_addr = 0xDDCCBBAA;
+    printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_1_obj);
+    nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, strlen((char*)payload));   
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+    
+    systick_delay(1000);
+    
+    enum nrf905_status status2 = 0;
+    nrf905_get_status(&nrf905_2_obj, &status2);
+    printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_2_obj);
+    
+    uint8_t received_data[9] = {0};
+    nrf905_get_rx_data(&nrf905_2_obj, received_data, sizeof(received_data));
+    printf("Received data: %s, on %p\n", received_data, &nrf905_2_obj);
+
     while (1)
     {
         GPIO_TOGGLE(A, 5);
-        printf("Hello!\n");
+        // printf("Hello!\n");
 
         wdg_feed();
 
