@@ -28,6 +28,12 @@ enum nrf905_pin
     NRF905_PIN_DRDY,
 };
 
+enum nrf905_status
+{
+    NRF905_STATUS_AM = 1 << 0,
+    NRF905_STATUS_DR = 1 << 1,
+};
+
 enum nrf905_mode
 {
     NRF905_MODE_POWER_DOWN = 0b000,
@@ -101,8 +107,8 @@ struct nrf905_cfg
     enum nrf905_addr_width tx_afw;
     uint8_t rx_pw;
     uint8_t tx_pw;
-    uint8_t rx_addr[4];
-    enum nrd905_up_clk_freq op_clk_freq;
+    uint32_t rx_addr;
+    enum nrd905_up_clk_freq up_clk_freq;
     bool up_clk_en;
     enum nrf905_xof xof;
     bool crc_en;
@@ -120,13 +126,41 @@ struct nrf905_obj
 
 //------------------------------------------------------------------------------
 
+/// @brief Initializes GPIO, enters power-down mode and writes and verifies all 10 configuration bytes
+/// @note All callbacks are required; configuration field ranges are not validated
+/// @note Leaves the radio in power-down mode
+/// @param obj Object receiving the configured callbacks
+/// @param cfg Configuration and platform callbacks
+/// @return true if initialization and register readback succeed, otherwise false
 bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg);
 
+/// @brief Reads the radio status through a one-byte SPI transaction
+/// @param obj Initialized radio object
+/// @param status Output status flags; unchanged if the operation fails
+/// @return true if the status was read, false for NULL arguments or SPI failure
+bool nrf905_get_status(struct nrf905_obj *obj, enum nrf905_status *status);
+
+/// @brief Writes PWR, CE and TXE pin levels encoded by mode, in that order
+/// @param obj Initialized radio object
+/// @param mode Requested operating mode
+/// @return false for NULL obj or mode above the highest enum value, otherwise true
 bool nrf905_set_mode(struct nrf905_obj *obj, enum nrf905_mode mode);
 
-bool nrf905_send(struct nrf905_obj *obj, uint8_t *data, uint8_t size);
+/// @brief Writes the TX address register and a zero-padded 32-byte TX payload buffer
+/// @note Does not start radio transmission; call with the radio in standby or power-down mode
+/// @param obj Initialized radio object
+/// @param addr Destination address, intended to be stored least-significant byte first
+/// @param payload Buffer containing len payload bytes
+/// @param len Number of bytes to copy, from 1 to 32; remaining buffer bytes are zeroed
+/// @return true if both SPI writes succeed, false for invalid arguments or SPI failure
+bool nrf905_set_tx_data(struct nrf905_obj *obj, uint32_t addr, const uint8_t *payload, uint8_t len);
 
-bool nrf905_receive(struct nrf905_obj *obj, uint8_t *data, uint8_t size, uint8_t *rd);
+/// @brief Reads size bytes from the beginning of the RX payload register
+/// @param obj Initialized radio object
+/// @param data Destination buffer with space for size bytes
+/// @param size Number of bytes to read, from 1 to 32
+/// @return true if the SPI read succeeds, false for invalid arguments or SPI failure
+bool nrf905_get_rx_data(struct nrf905_obj *obj, uint8_t *data, uint8_t size);
 
 //------------------------------------------------------------------------------
 
