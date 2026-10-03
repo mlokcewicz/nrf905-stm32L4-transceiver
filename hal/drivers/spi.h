@@ -19,9 +19,9 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
-typedef bool (*spi_io_init_cb)(void); 
+typedef bool (*spi_io_init_cb)(void);
+typedef void (*spi_cs_set_cb)(bool state); 
 typedef void (*spi_dma_config_cb)(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len); 
-typedef void (*spi_transmit_complete_cb)(uint8_t received_byte);
 
 //------------------------------------------------------------------------------
 
@@ -77,7 +77,6 @@ struct spi_cfg
     spi_io_init_cb io_init;
     spi_cs_set_cb cs_set;
     spi_dma_config_cb dma_config;
-    spi_transmit_complete_cb tc_cb;
 };
 
 struct spi_obj
@@ -85,7 +84,6 @@ struct spi_obj
     enum spi_instance inst;
     spi_cs_set_cb cs_set;
     spi_dma_config_cb dma_config;
-    spi_transmit_complete_cb tc_cb;
 };
 
 //------------------------------------------------------------------------------

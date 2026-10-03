@@ -38,7 +38,6 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg)
         return false;
 
     obj->inst = cfg->inst;
-    obj->tc_cb = cfg->tc_cb;
     obj->cs_set = cfg->cs_set;
     obj->dma_config = cfg->dma_config;
 
@@ -94,8 +93,6 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
     SPI_TypeDef *base = spi_base[obj->inst];
     int32_t pos = 0;
 
-    if (obj->cs_set) obj->cs_set(false);
-
     if (obj->dma_config)
     {
         base->CR1 &= ~SPI_CR1_SPE;
@@ -105,11 +102,6 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
         obj->dma_config((uintptr_t)&base->DR, data_rx, data_tx, len);
 
         base->CR1 |= SPI_CR1_SPE;
-
-        void hal_delay(uint32_t ms);
-        hal_delay(1000);
-
-        while (base->SR & SPI_SR_BSY) {}
     }
     else
     {
@@ -131,8 +123,6 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
         while (base->SR & SPI_SR_BSY) {}
     }
 
-    if (obj->cs_set) obj->cs_set(true);
-    
     return 0;
 }
 

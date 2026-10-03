@@ -156,12 +156,17 @@
 //------------------------------------------------------------------------------
 /* Static objects */
 
-static struct usart_obj usart = {0};
-static struct spi_obj spi2 = {0};
-static struct spi_obj spi3 = {0};
+static struct usart_obj usart2_obj = {0};
+static struct spi_obj spi2_obj = {0};
+static struct spi_obj spi3_obj = {0};
 
 static struct nrf905_obj nrf905_1_obj;
 static struct nrf905_obj nrf905_2_obj;
+
+static volatile bool spi2_dma_rx_done;
+static volatile bool spi2_dma_tx_done;
+static volatile bool spi3_dma_rx_done;
+static volatile bool spi3_dma_tx_done;
 
 //------------------------------------------------------------------------------
 /* Hardfault handling */
@@ -240,7 +245,7 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 int __io_putchar(int ch)
 {
-    usart_send(&usart, (uint8_t *)&ch, 1);
+    usart_send(&usart2_obj, (uint8_t *)&ch, 1);
     return 1;
 }
 
@@ -255,6 +260,26 @@ static bool usart_io_init(void)
     return true;
 }
 
+static void spi2_dma_rx_tc(void)
+{
+    spi2_dma_rx_done = true;
+}
+
+static void spi2_dma_tx_tc(void)
+{
+    spi2_dma_tx_done = true;
+}
+
+static void spi3_dma_rx_tc(void)
+{
+    spi3_dma_rx_done = true;
+}
+
+static void spi3_dma_tx_tc(void)
+{
+    spi3_dma_tx_done = true;
+}
+
 static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
 {
     static uint8_t dummy_rx;
@@ -264,6 +289,7 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI2_DMA_INSTANCE,
         .channel = HAL_SPI2_DMA_RX_CHANNEL,
+        .tc = spi2_dma_rx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
         .count = len,
@@ -281,6 +307,7 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI2_DMA_INSTANCE,
         .channel = HAL_SPI2_DMA_TX_CHANNEL,
+        .tc = spi2_dma_tx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
         .count = len,
@@ -307,6 +334,7 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI3_DMA_INSTANCE,
         .channel = HAL_SPI3_DMA_RX_CHANNEL,
+        .tc = spi3_dma_rx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
         .count = len,
@@ -324,6 +352,7 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI3_DMA_INSTANCE,
         .channel = HAL_SPI3_DMA_TX_CHANNEL,
+        .tc = spi3_dma_tx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
         .count = len,
@@ -392,7 +421,17 @@ static bool nrf905_io_init_cb1(void)
 
 static bool nrf905_spi_transmit_cb1(uint8_t *data_tx, uint8_t *data_rx, uint32_t len)
 {
-    spi_transmit(&spi2, data_rx, data_tx, len);
+    spi2_dma_rx_done = false;
+    spi2_dma_tx_done = false;
+
+    spi_cs_set(&spi2_obj, false);
+
+    spi_transmit(&spi2_obj, data_rx, data_tx, len);
+
+    while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
+
+    spi_cs_set(&spi2_obj, true);
+
     return true;
 }
 
@@ -400,7 +439,7 @@ static bool nrf905_pin_set_cb1(enum nrf905_pin pin, bool state)
 {
     switch (pin)
     {
-        case NRF905_PIN_CS: spi_cs_set(&spi2, state); break;
+        case NRF905_PIN_CS: spi_cs_set(&spi2_obj, state); break;
         case NRF905_PIN_PWR: GPIO_SET(HAL_NRF1_PWR_PORT, HAL_NRF1_PWR_PIN, state); break;
         case NRF905_PIN_CE: GPIO_SET(HAL_NRF1_CE_PORT, HAL_NRF1_CE_PIN, state); break;
         case NRF905_PIN_TXE: GPIO_SET(HAL_NRF1_TXE_PORT, HAL_NRF1_TXE_PIN, state); break;
@@ -436,7 +475,17 @@ static bool nrf905_io_init_cb2(void)
 
 static bool nrf905_spi_transmit_cb2(uint8_t *data_tx, uint8_t *data_rx, uint32_t len)
 {
-    spi_transmit(&spi3, data_rx, data_tx, len);
+    spi3_dma_rx_done = false;
+    spi3_dma_tx_done = false;
+
+    spi_cs_set(&spi3_obj, false);
+
+    spi_transmit(&spi3_obj, data_rx, data_tx, len);
+
+    while (!spi3_dma_rx_done || !spi3_dma_tx_done) {}
+    
+    spi_cs_set(&spi3_obj, true);
+    
     return true;
 }
 
@@ -444,7 +493,7 @@ static bool nrf905_pin_set_cb2(enum nrf905_pin pin, bool state)
 {
     switch (pin)
     {
-        case NRF905_PIN_CS: spi_cs_set(&spi3, state); break;
+        case NRF905_PIN_CS: spi_cs_set(&spi3_obj, state); break;
         case NRF905_PIN_PWR: GPIO_SET(HAL_NRF2_PWR_PORT, HAL_NRF2_PWR_PIN, state); break;
         case NRF905_PIN_CE: GPIO_SET(HAL_NRF2_CE_PORT, HAL_NRF2_CE_PIN, state); break;
         case NRF905_PIN_TXE: GPIO_SET(HAL_NRF2_TXE_PORT, HAL_NRF2_TXE_PIN, state); break;
@@ -546,7 +595,7 @@ bool hal_init(void)
         .io_init = usart_io_init,
     };
 
-    if (!usart_init(&usart, &usart_cfg))
+    if (!usart_init(&usart2_obj, &usart_cfg))
         return false;
 
     /* DMA for SPI2 and SPI3 */
@@ -579,7 +628,7 @@ bool hal_init(void)
         .lsb_first = HAL_SPI_LSB_FIRST,
     };
 
-    if (!spi_init(&spi2, &spi_cfg2))
+    if (!spi_init(&spi2_obj, &spi_cfg2))
         return false;
 
     struct nrf905_cfg nrf905_1_cfg = 
@@ -616,8 +665,13 @@ bool hal_init(void)
     uint8_t data_tx[] = {HAL_RADIO_READ_CONFIG_0, HAL_SPI_DUMMY_BYTE};
     uint8_t data_rx[sizeof(data_tx)] = {0};
 
-    /* spi_transmit keeps CS low for the entire command and data transfer. */
-    spi_transmit(&spi2, data_rx, data_tx, sizeof(data_tx));
+    /* Keep CS low until both DMA channels complete. */
+    spi2_dma_rx_done = false;
+    spi2_dma_tx_done = false;
+    spi_cs_set(&spi2_obj, false);
+    spi_transmit(&spi2_obj, data_rx, data_tx, sizeof(data_tx));
+    while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
+    spi_cs_set(&spi2_obj, true);
 
     printf("nRF905 1 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx[0], (unsigned int)data_rx[1]);
 
@@ -635,7 +689,7 @@ bool hal_init(void)
         .lsb_first = HAL_SPI_LSB_FIRST,
     };
 
-    if (!spi_init(&spi3, &spi_cfg3))
+    if (!spi_init(&spi3_obj, &spi_cfg3))
         return false;
 
     struct nrf905_cfg nrf905_2_cfg = 
@@ -672,8 +726,13 @@ bool hal_init(void)
     uint8_t data_tx3[] = {HAL_RADIO_READ_CONFIG_0, HAL_SPI_DUMMY_BYTE};
     uint8_t data_rx3[sizeof(data_tx3)] = {0};
 
-    /* spi_transmit keeps CS low for the entire command and data transfer. */
-    spi_transmit(&spi3, data_rx3, data_tx3, sizeof(data_tx3));
+    /* Keep CS low until both DMA channels complete. */
+    spi3_dma_rx_done = false;
+    spi3_dma_tx_done = false;
+    spi_cs_set(&spi3_obj, false);
+    spi_transmit(&spi3_obj, data_rx3, data_tx3, sizeof(data_tx3));
+    while (!spi3_dma_rx_done || !spi3_dma_tx_done) {}
+    spi_cs_set(&spi3_obj, true);
 
     printf("nRF905 2 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx3[0], (unsigned int)data_rx3[1]);
 

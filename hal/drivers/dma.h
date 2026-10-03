@@ -19,6 +19,10 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
+typedef void (*dma_tc_cb)(void);
+
+//------------------------------------------------------------------------------
+
 enum dma_instance
 {
     DMA_INSTANCE_1,
@@ -84,21 +88,19 @@ struct dma_channel_cfg
     bool peripheral_increment;
     bool circular;
     bool memory_to_memory;
+    dma_tc_cb tc; 
 };
 
 /// @brief Enables the clock for the selected DMA controller
 /// @param inst DMA controller
 void dma_init(enum dma_instance inst);
 
-/// @brief Enables the DMA clock, configures and enables the selected channel
-/// @note Disables the channel before configuration; interrupts remain disabled
-/// @note Caller must select a valid peripheral request mapping and keep buffers alive until completion
+/// @brief Configures and enables the selected DMA channel
 /// @param cfg Channel configuration; count is 1 to 65535 data items, not bytes
 /// @return false for invalid configuration, otherwise true
 bool dma_channel_config(const struct dma_channel_cfg *cfg);
 
 /// @brief Selects the peripheral request for a disabled DMA channel through CSELR
-/// @note Requires the DMA clock to be enabled; does not enable or disable the channel
 /// @param inst DMA controller
 /// @param channel DMA channel
 /// @param request Request selection for the selected controller and channel
