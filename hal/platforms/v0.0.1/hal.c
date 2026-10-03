@@ -46,8 +46,8 @@
 #define HAL_NRF2_MISO_PIN                  11
 #define HAL_NRF2_MOSI_PORT                 C
 #define HAL_NRF2_MOSI_PIN                  12
-#define HAL_NRF2_CS_PORT                   C
-#define HAL_NRF2_CS_PIN                    13
+#define HAL_NRF2_CS_PORT                   A
+#define HAL_NRF2_CS_PIN                    15
 #define HAL_NRF1_TXE_PORT                  C
 #define HAL_NRF1_TXE_PIN                   5
 #define HAL_NRF1_PWR_PORT                  C
@@ -145,8 +145,6 @@
 #define HAL_SPI_DUMMY_BYTE                 0x00
 #define HAL_RADIO_TEST_PAYLOAD             "nRF905 radio trx test msg!"
 #define HAL_RADIO_TEST_TX_ADDRESS          HAL_RADIO_RX_ADDRESS
-
-
 
 //------------------------------------------------------------------------------
 /* Hardware definitions */
@@ -262,6 +260,7 @@ static bool usart_io_init(void)
 
 static void spi2_dma_rx_tc(void)
 {
+    spi_transmit_finish(&spi2_obj);
     spi2_dma_rx_done = true;
 }
 
@@ -272,6 +271,7 @@ static void spi2_dma_tx_tc(void)
 
 static void spi3_dma_rx_tc(void)
 {
+    spi_transmit_finish(&spi3_obj);
     spi3_dma_rx_done = true;
 }
 
@@ -380,10 +380,7 @@ static bool spi2_io_init(void)
     GPIO_CONFIG(HAL_NRF1_SCK_PORT, HAL_NRF1_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 SCK */
     GPIO_CONFIG(HAL_NRF1_MISO_PORT, HAL_NRF1_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 MISO */
     GPIO_CONFIG(HAL_NRF1_MOSI_PORT, HAL_NRF1_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF1_AF); /* SPI2 MOSI */
-
-    /* GPIOB clock is active; preload CS high before enabling its output. */
-    spi2_cs_write(true);
-    GPIO_CONFIG(HAL_NRF1_CS_PORT, HAL_NRF1_CS_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF1_CS_PORT, HAL_NRF1_CS_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_PU, HAL_NRF1_AF);
 
     return true;
 }
@@ -398,10 +395,7 @@ static bool spi3_io_init(void)
     GPIO_CONFIG(HAL_NRF2_SCK_PORT, HAL_NRF2_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 SCK */
     GPIO_CONFIG(HAL_NRF2_MISO_PORT, HAL_NRF2_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 MISO */
     GPIO_CONFIG(HAL_NRF2_MOSI_PORT, HAL_NRF2_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF2_AF); /* SPI3 MOSI */
-
-    /* GPIOB clock is active; preload CS high before enabling its output. */
-    spi3_cs_write(true);
-    GPIO_CONFIG(HAL_NRF2_CS_PORT, HAL_NRF2_CS_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF2_CS_PORT, HAL_NRF2_CS_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_PU, HAL_NRF2_AF);
 
     return true;
 }
@@ -424,13 +418,9 @@ static bool nrf905_spi_transmit_cb1(uint8_t *data_tx, uint8_t *data_rx, uint32_t
     spi2_dma_rx_done = false;
     spi2_dma_tx_done = false;
 
-    spi_cs_set(&spi2_obj, false);
-
     spi_transmit(&spi2_obj, data_rx, data_tx, len);
 
     while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
-
-    spi_cs_set(&spi2_obj, true);
 
     return true;
 }
@@ -478,14 +468,10 @@ static bool nrf905_spi_transmit_cb2(uint8_t *data_tx, uint8_t *data_rx, uint32_t
     spi3_dma_rx_done = false;
     spi3_dma_tx_done = false;
 
-    spi_cs_set(&spi3_obj, false);
-
     spi_transmit(&spi3_obj, data_rx, data_tx, len);
 
     while (!spi3_dma_rx_done || !spi3_dma_tx_done) {}
-    
-    spi_cs_set(&spi3_obj, true);
-    
+
     return true;
 }
 
@@ -620,12 +606,13 @@ bool hal_init(void)
         .inst = HAL_NRF1_SPI_INSTANCE,
         .clock_presc = HAL_SPI_PRESCALER,
         .data_size = HAL_SPI_DATA_SIZE,
-        .io_init = spi2_io_init,
-        .dma_config = spi2_dma_config,
-        .cs_set = spi2_cs_write,
         .cpol = HAL_SPI_CPOL,
         .cpha = HAL_SPI_CPHA,
         .lsb_first = HAL_SPI_LSB_FIRST,
+        .hw_cs = true,
+        .io_init = spi2_io_init,
+        .dma_config = spi2_dma_config,
+        .cs_set = spi2_cs_write,
     };
 
     if (!spi_init(&spi2_obj, &spi_cfg2))
@@ -668,10 +655,8 @@ bool hal_init(void)
     /* Keep CS low until both DMA channels complete. */
     spi2_dma_rx_done = false;
     spi2_dma_tx_done = false;
-    spi_cs_set(&spi2_obj, false);
     spi_transmit(&spi2_obj, data_rx, data_tx, sizeof(data_tx));
     while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
-    spi_cs_set(&spi2_obj, true);
 
     printf("nRF905 1 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx[0], (unsigned int)data_rx[1]);
 
@@ -681,12 +666,13 @@ bool hal_init(void)
         .inst = HAL_NRF2_SPI_INSTANCE,
         .clock_presc = HAL_SPI_PRESCALER,
         .data_size = HAL_SPI_DATA_SIZE,
-        .io_init = spi3_io_init,
-        .dma_config = spi3_dma_config,
-        .cs_set = spi3_cs_write,
         .cpol = HAL_SPI_CPOL,
         .cpha = HAL_SPI_CPHA,
         .lsb_first = HAL_SPI_LSB_FIRST,
+        .hw_cs = true,
+        .io_init = spi3_io_init,
+        .dma_config = spi3_dma_config,
+        .cs_set = spi3_cs_write,
     };
 
     if (!spi_init(&spi3_obj, &spi_cfg3))
@@ -729,10 +715,8 @@ bool hal_init(void)
     /* Keep CS low until both DMA channels complete. */
     spi3_dma_rx_done = false;
     spi3_dma_tx_done = false;
-    spi_cs_set(&spi3_obj, false);
     spi_transmit(&spi3_obj, data_rx3, data_tx3, sizeof(data_tx3));
     while (!spi3_dma_rx_done || !spi3_dma_tx_done) {}
-    spi_cs_set(&spi3_obj, true);
 
     printf("nRF905 2 status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx3[0], (unsigned int)data_rx3[1]);
 

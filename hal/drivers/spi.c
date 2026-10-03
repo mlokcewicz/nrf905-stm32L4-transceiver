@@ -79,9 +79,6 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg)
 
     base->CR2 |= SPI_CR2_FRXTH;
 
-    /* Enable SPI */
-    base->CR1 |= SPI_CR1_SPE;
-
     return true;
 }
 
@@ -105,6 +102,8 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
     }
     else
     {
+        base->CR1 |= SPI_CR1_SPE;
+
         while (len--)
         {
             while (!(base->SR & SPI_SR_TXE)) {};
@@ -124,6 +123,12 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
     }
 
     return 0;
+}
+
+void spi_transmit_finish(struct spi_obj *obj)
+{
+    SPI_TypeDef *base = spi_base[obj->inst];
+    base->CR1 &= ~SPI_CR1_SPE;
 }
 
 void spi_cs_set(struct spi_obj *obj, bool state)

@@ -102,6 +102,10 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg);
 /// @return Always 0, including when a pointer is NULL or len is zero; received data is stored in data_rx
 uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, uint32_t len);
 
+/// @brief Clears SPE to disable SPI after a completed transfer
+/// @param obj Pointer to an initialized SPI instance object
+void spi_transmit_finish(struct spi_obj *obj);
+
 /// @brief Sets or resets SS pin
 /// @param obj Pointer to the SPI instance object @ref spi_obj
 /// @param state Physical SS level: false selects the device, true deselects it
