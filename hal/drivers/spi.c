@@ -129,6 +129,8 @@ void spi_transmit_finish(struct spi_obj *obj)
 {
     SPI_TypeDef *base = spi_base[obj->inst];
     base->CR1 &= ~SPI_CR1_SPE;
+    base->CR2 &= ~SPI_CR2_RXDMAEN;
+    base->CR2 &= ~SPI_CR2_TXDMAEN;
 }
 
 void spi_cs_set(struct spi_obj *obj, bool state)
