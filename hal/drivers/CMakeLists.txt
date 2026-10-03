@@ -11,6 +11,7 @@ target_sources(drivers PRIVATE
     wdg.c
     usart.c
     spi.c
+    dma.c
 )
 
 target_link_libraries(drivers
