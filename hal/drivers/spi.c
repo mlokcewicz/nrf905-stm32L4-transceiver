@@ -40,6 +40,7 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg)
     obj->inst = cfg->inst;
     obj->tc_cb = cfg->tc_cb;
     obj->cs_set = cfg->cs_set;
+    obj->dma_config = cfg->dma_config;
 
     SPI_TypeDef *base = spi_base[obj->inst];
 
@@ -94,24 +95,42 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
     int32_t pos = 0;
 
     if (obj->cs_set) obj->cs_set(false);
-    
-    while (len--)
+
+    if (obj->dma_config)
     {
-        while (!(base->SR & SPI_SR_TXE)) {};
-        
-        *(volatile uint8_t *)&base->DR = data_tx ? data_tx[pos] : 0;
-        
-        while (!(base->SR & SPI_SR_RXNE)) {};
+        base->CR1 &= ~SPI_CR1_SPE;
+        base->CR2 |= SPI_CR2_RXDMAEN;
+        base->CR2 |= SPI_CR2_TXDMAEN;
 
-        uint8_t rx = *(volatile uint8_t *)&base->DR;
+        obj->dma_config((uintptr_t)&base->DR, data_rx, data_tx, len);
 
-        if (data_rx) data_rx[pos] = rx;
-        
-        pos++;
+        base->CR1 |= SPI_CR1_SPE;
+
+        void hal_delay(uint32_t ms);
+        hal_delay(1000);
+
+        while (base->SR & SPI_SR_BSY) {}
+    }
+    else
+    {
+        while (len--)
+        {
+            while (!(base->SR & SPI_SR_TXE)) {};
+            
+            *(volatile uint8_t *)&base->DR = data_tx ? data_tx[pos] : 0;
+            
+            while (!(base->SR & SPI_SR_RXNE)) {};
+    
+            uint8_t rx = *(volatile uint8_t *)&base->DR;
+    
+            if (data_rx) data_rx[pos] = rx;
+            
+            pos++;
+        }
+    
+        while (base->SR & SPI_SR_BSY) {}
     }
 
-    while (base->SR & SPI_SR_BSY) {}
-    
     if (obj->cs_set) obj->cs_set(true);
     
     return 0;

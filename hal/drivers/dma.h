@@ -86,6 +86,10 @@ struct dma_channel_cfg
     bool memory_to_memory;
 };
 
+/// @brief Enables the clock for the selected DMA controller
+/// @param inst DMA controller
+void dma_init(enum dma_instance inst);
+
 /// @brief Enables the DMA clock, configures and enables the selected channel
 /// @note Disables the channel before configuration; interrupts remain disabled
 /// @note Caller must select a valid peripheral request mapping and keep buffers alive until completion

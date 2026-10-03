@@ -40,6 +40,12 @@ static const struct dma_context ctx[2][7] =
     },
 };
 
+void dma_init(enum dma_instance inst)
+{
+    RCC->AHB1ENR |= inst == DMA_INSTANCE_1 ? RCC_AHB1ENR_DMA1EN : RCC_AHB1ENR_DMA2EN;
+    (void)RCC->AHB1ENR;
+}
+
 bool dma_channel_config(const struct dma_channel_cfg *cfg)
 {
     if (!cfg || (uint32_t)cfg->inst > DMA_INSTANCE_2 || (uint32_t)cfg->channel > DMA_CHANNEL_7 ||
@@ -48,9 +54,6 @@ bool dma_channel_config(const struct dma_channel_cfg *cfg)
         (uint32_t)cfg->priority > DMA_PRIORITY_VERY_HIGH || cfg->count == 0 || cfg->count > 65535 ||
         !cfg->peripheral_address || !cfg->memory_address || (cfg->memory_to_memory && cfg->circular))
         return false;
-
-    RCC->AHB1ENR |= cfg->inst == DMA_INSTANCE_1 ? RCC_AHB1ENR_DMA1EN : RCC_AHB1ENR_DMA2EN;
-    (void)RCC->AHB1ENR;
 
     const struct dma_context *context = &ctx[cfg->inst][cfg->channel];
     DMA_Channel_TypeDef *base = context->channel_base;

@@ -19,6 +19,7 @@
 #include <rcc.h>
 #include <flash.h>
 #include <wdg.h>
+#include <dma.h>
 #include <gpio.h>
 #include <usart.h>
 #include <spi.h>
@@ -109,6 +110,16 @@
 #define HAL_SPI_CPOL                       false
 #define HAL_SPI_CPHA                       false
 #define HAL_SPI_LSB_FIRST                  false
+
+/* SPI DMA mapping */
+#define HAL_SPI2_DMA_INSTANCE              DMA_INSTANCE_1
+#define HAL_SPI2_DMA_RX_CHANNEL            DMA_CHANNEL_4
+#define HAL_SPI2_DMA_TX_CHANNEL            DMA_CHANNEL_5
+#define HAL_SPI2_DMA_REQUEST               DMA_REQUEST_1
+#define HAL_SPI3_DMA_INSTANCE              DMA_INSTANCE_2
+#define HAL_SPI3_DMA_RX_CHANNEL            DMA_CHANNEL_1
+#define HAL_SPI3_DMA_TX_CHANNEL            DMA_CHANNEL_2
+#define HAL_SPI3_DMA_REQUEST               DMA_REQUEST_3
 
 /* Shared radio configuration */
 #define HAL_RADIO_CHANNEL                  108
@@ -242,6 +253,92 @@ static bool usart_io_init(void)
     GPIO_CONFIG(HAL_UART_RX_PORT, HAL_UART_RX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
 
     return true;
+}
+
+static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
+{
+    static uint8_t dummy_rx;
+    static uint8_t dummy_tx = HAL_SPI_DUMMY_BYTE;
+
+    struct dma_channel_cfg rx_cfg =
+    {
+        .inst = HAL_SPI2_DMA_INSTANCE,
+        .channel = HAL_SPI2_DMA_RX_CHANNEL,
+        .peripheral_address = periph_address,
+        .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
+        .count = len,
+        .peripheral_size = DMA_DATA_SIZE_8_BIT,
+        .memory_size = DMA_DATA_SIZE_8_BIT,
+        .direction = DMA_PERIPHERAL_TO_MEMORY,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = data_rx != NULL,
+        .peripheral_increment = false,
+        .circular = false,
+        .memory_to_memory = false,
+    };
+
+    struct dma_channel_cfg tx_cfg =
+    {
+        .inst = HAL_SPI2_DMA_INSTANCE,
+        .channel = HAL_SPI2_DMA_TX_CHANNEL,
+        .peripheral_address = periph_address,
+        .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
+        .count = len,
+        .peripheral_size = DMA_DATA_SIZE_8_BIT,
+        .memory_size = DMA_DATA_SIZE_8_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = data_tx != NULL,
+        .peripheral_increment = false,
+        .circular = false,
+        .memory_to_memory = false,
+    };
+
+    dma_channel_config(&rx_cfg);
+    dma_channel_config(&tx_cfg);
+}
+
+static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
+{
+    static uint8_t dummy_rx;
+    static uint8_t dummy_tx = HAL_SPI_DUMMY_BYTE;
+
+    struct dma_channel_cfg rx_cfg =
+    {
+        .inst = HAL_SPI3_DMA_INSTANCE,
+        .channel = HAL_SPI3_DMA_RX_CHANNEL,
+        .peripheral_address = periph_address,
+        .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
+        .count = len,
+        .peripheral_size = DMA_DATA_SIZE_8_BIT,
+        .memory_size = DMA_DATA_SIZE_8_BIT,
+        .direction = DMA_PERIPHERAL_TO_MEMORY,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = data_rx != NULL,
+        .peripheral_increment = false,
+        .circular = false,
+        .memory_to_memory = false,
+    };
+
+    struct dma_channel_cfg tx_cfg =
+    {
+        .inst = HAL_SPI3_DMA_INSTANCE,
+        .channel = HAL_SPI3_DMA_TX_CHANNEL,
+        .peripheral_address = periph_address,
+        .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
+        .count = len,
+        .peripheral_size = DMA_DATA_SIZE_8_BIT,
+        .memory_size = DMA_DATA_SIZE_8_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = data_tx != NULL,
+        .peripheral_increment = false,
+        .circular = false,
+        .memory_to_memory = false,
+    };
+
+    dma_channel_config(&rx_cfg);
+    dma_channel_config(&tx_cfg);
 }
 
 static void spi2_cs_write(bool state)
@@ -452,6 +549,22 @@ bool hal_init(void)
     if (!usart_init(&usart, &usart_cfg))
         return false;
 
+    /* DMA for SPI2 and SPI3 */
+    dma_init(HAL_SPI2_DMA_INSTANCE);
+    dma_init(HAL_SPI3_DMA_INSTANCE);
+
+    if (!dma_channel_link(HAL_SPI2_DMA_INSTANCE, HAL_SPI2_DMA_RX_CHANNEL, HAL_SPI2_DMA_REQUEST))
+        return false;
+
+    if (!dma_channel_link(HAL_SPI2_DMA_INSTANCE, HAL_SPI2_DMA_TX_CHANNEL, HAL_SPI2_DMA_REQUEST))
+        return false;
+
+    if (!dma_channel_link(HAL_SPI3_DMA_INSTANCE, HAL_SPI3_DMA_RX_CHANNEL, HAL_SPI3_DMA_REQUEST))
+        return false;
+
+    if (!dma_channel_link(HAL_SPI3_DMA_INSTANCE, HAL_SPI3_DMA_TX_CHANNEL, HAL_SPI3_DMA_REQUEST))
+        return false;
+
     /* NRF 1 */    
     struct spi_cfg spi_cfg2 =
     {
@@ -459,6 +572,7 @@ bool hal_init(void)
         .clock_presc = HAL_SPI_PRESCALER,
         .data_size = HAL_SPI_DATA_SIZE,
         .io_init = spi2_io_init,
+        .dma_config = spi2_dma_config,
         .cs_set = spi2_cs_write,
         .cpol = HAL_SPI_CPOL,
         .cpha = HAL_SPI_CPHA,
@@ -514,6 +628,7 @@ bool hal_init(void)
         .clock_presc = HAL_SPI_PRESCALER,
         .data_size = HAL_SPI_DATA_SIZE,
         .io_init = spi3_io_init,
+        .dma_config = spi3_dma_config,
         .cs_set = spi3_cs_write,
         .cpol = HAL_SPI_CPOL,
         .cpha = HAL_SPI_CPHA,
