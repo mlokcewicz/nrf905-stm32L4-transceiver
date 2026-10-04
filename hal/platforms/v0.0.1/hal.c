@@ -62,8 +62,8 @@
 #define HAL_NRF2_TXE_PIN                   1
 #define HAL_NRF2_PWR_PORT                  C
 #define HAL_NRF2_PWR_PIN                   2
-#define HAL_NRF2_DR_PORT                   C
-#define HAL_NRF2_DR_PIN                    3
+#define HAL_NRF2_DR_PORT                   B
+#define HAL_NRF2_DR_PIN                    4
 #define HAL_LED_PORT                       A
 #define HAL_LED_PIN                        5
 
@@ -143,7 +143,7 @@
 #define HAL_RADIO_TEST_DELAY_MS            1000
 #define HAL_RADIO_READ_CONFIG_0            0b00010000
 #define HAL_SPI_DUMMY_BYTE                 0x00
-#define HAL_RADIO_TEST_PAYLOAD             "nRF905 radio trx test msg!"
+#define HAL_RADIO_TEST_PAYLOAD             "nRF905 RADIO TRX TEST MSG!"
 #define HAL_RADIO_TEST_TX_ADDRESS          HAL_RADIO_RX_ADDRESS
 
 //------------------------------------------------------------------------------
@@ -458,7 +458,7 @@ static bool nrf905_io_init_cb2(void)
     GPIO_CONFIG(HAL_NRF2_CE_PORT, HAL_NRF2_CE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
     GPIO_CONFIG(HAL_NRF2_TXE_PORT, HAL_NRF2_TXE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
     GPIO_CONFIG(HAL_NRF2_PWR_PORT, HAL_NRF2_PWR_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
-    GPIO_CONFIG(HAL_NRF2_DR_PORT, HAL_NRF2_DR_PIN, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_GPIO_AF_UNUSED);
+    GPIO_CONFIG(HAL_NRF2_DR_PORT, HAL_NRF2_DR_PIN, GPIO_MODE_AF, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 2);
 
     return true;
 }
@@ -766,6 +766,45 @@ void hal_radio_test_hw(void)
     spi3_dma_config((uintptr_t)&SPI3->DR, received_data, received_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1);
     // SPI3->CR1 |= SPI_CR1_SPE;
 
+    /* Prepare TIM4 input capture DMA requet generation on NRF 2 DR pin */
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
+    (void)RCC->APB1ENR1;
+
+    TIM3->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 channel is configured as input, IC1 is mapped on TI1
+    TIM3->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
+    TIM3->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
+    TIM3->CCER &= ~TIM_CCER_CC1P; // Rising edge
+    TIM3->CCER &= ~TIM_CCER_CC1NP; // Rising edge
+    TIM3->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
+    TIM3->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
+
+    /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
+    static uint32_t spi3_cr1_data_spi_en = 0;
+    spi3_cr1_data_spi_en = SPI3->CR1 | SPI_CR1_SPE;
+    dma_init(DMA_INSTANCE_1);
+    struct dma_channel_cfg tim3_spi_start_cfg =
+    {
+        .inst = DMA_INSTANCE_1,
+        .channel = DMA_CHANNEL_6,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)&SPI3->CR1,
+        .memory_address = (uintptr_t)&spi3_cr1_data_spi_en,
+        .count = sizeof(spi3_cr1_data_spi_en) / sizeof(uint32_t),
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = false,
+        .peripheral_increment = false,
+        .circular = false,
+        .memory_to_memory = false,
+    };
+
+    dma_channel_config(&tim3_spi_start_cfg);
+    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_5);
+
+    static uint32_t spi3_cr1_data_spi_disable = 0;
+    spi3_cr1_data_spi_disable = SPI3->CR1 & ~SPI_CR1_SPE;
     
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
@@ -775,14 +814,6 @@ void hal_radio_test_hw(void)
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
     
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
-    
-    // enum nrf905_status status2 = 0;
-    // nrf905_get_status(&nrf905_2_obj, &status2);
-    // printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_2_obj);
-    
-    SPI3->CR1 |= SPI_CR1_SPE;
-    systick_delay(HAL_RADIO_TEST_DELAY_MS);
-
 
     printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
 
