@@ -17,13 +17,14 @@ int main()
     hal_init();
 
     hal_radio_test_hw();
-
+    
     while (1)
     {
         hal_led_toggle();
         hal_wdg_feed();
-
-        hal_delay(500);
+        
+        hal_radio_test_hw();
+        hal_delay(1000);
     }
 
     return 0;

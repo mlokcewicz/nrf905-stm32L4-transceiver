@@ -756,7 +756,6 @@ void hal_radio_test_hw(void)
     nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
 
     /* Prepare SPI3 for RX when DR is high */
-
     SPI3->CR1 &= ~SPI_CR1_SPE;
     SPI3->CR2 |= SPI_CR2_RXDMAEN;
     SPI3->CR2 |= SPI_CR2_TXDMAEN;
@@ -773,14 +772,15 @@ void hal_radio_test_hw(void)
     TIM3->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 channel is configured as input, IC1 is mapped on TI1
     TIM3->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
     TIM3->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
-    TIM3->CCER &= ~TIM_CCER_CC1P; // Rising edge
-    TIM3->CCER &= ~TIM_CCER_CC1NP; // Rising edge
+    TIM3->CCER |= TIM_CCER_CC1P; // Bith edges
+    TIM3->CCER |= TIM_CCER_CC1NP; // Both edges
     TIM3->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
     TIM3->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
 
     /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
-    static uint32_t spi3_cr1_data_spi_en = 0;
-    spi3_cr1_data_spi_en = SPI3->CR1 | SPI_CR1_SPE;
+    static uint32_t spi3_cr1_data[2] = {0};
+    spi3_cr1_data[0] = SPI3->CR1 | SPI_CR1_SPE;
+    spi3_cr1_data[1] = SPI3->CR1 & ~SPI_CR1_SPE;
     dma_init(DMA_INSTANCE_1);
     struct dma_channel_cfg tim3_spi_start_cfg =
     {
@@ -788,13 +788,13 @@ void hal_radio_test_hw(void)
         .channel = DMA_CHANNEL_6,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&SPI3->CR1,
-        .memory_address = (uintptr_t)&spi3_cr1_data_spi_en,
-        .count = sizeof(spi3_cr1_data_spi_en) / sizeof(uint32_t),
+        .memory_address = (uintptr_t)&spi3_cr1_data,
+        .count = sizeof(spi3_cr1_data) / sizeof(uint32_t),
         .peripheral_size = DMA_DATA_SIZE_32_BIT,
         .memory_size = DMA_DATA_SIZE_32_BIT,
         .direction = DMA_MEMORY_TO_PERIPHERAL,
         .priority = DMA_PRIORITY_LOW,
-        .memory_increment = false,
+        .memory_increment = true,
         .peripheral_increment = false,
         .circular = false,
         .memory_to_memory = false,
@@ -803,9 +803,10 @@ void hal_radio_test_hw(void)
     dma_channel_config(&tim3_spi_start_cfg);
     dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_5);
 
-    static uint32_t spi3_cr1_data_spi_disable = 0;
-    spi3_cr1_data_spi_disable = SPI3->CR1 & ~SPI_CR1_SPE;
-    
+    /* Remove tc callback from SPI3 DMA RX and TX config */
+    DMA2_Channel1->CCR &= ~DMA_CCR_TCIE;
+    DMA2_Channel2->CCR &= ~DMA_CCR_TCIE;
+
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
     uint32_t tx_addr = HAL_RADIO_TEST_TX_ADDRESS;
@@ -817,6 +818,7 @@ void hal_radio_test_hw(void)
 
     printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
 
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
     nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_STANDBY); 
 }
 
