@@ -26,6 +26,12 @@ bool hal_init(void);
 /// @note Does not check operation results, restore radio modes or refresh the watchdog
 void hal_radio_test(void);
 
+/// @brief Runs a blocking radio test transmitting RADIOMSG from nRF1 to nRF2 
+/// @note Requires successful hal_init(); use pure HW-driven receptrion using DMA requests from DR pin over Timer
+/// @note Does not check operation results, restore radio modes or refresh the watchdog
+void hal_radio_test_hw(void);
+
+
 /// @brief Toggles the LED output on PA5
 /// @note Requires GPIO initialization by hal_init()
 void hal_led_toggle(void);

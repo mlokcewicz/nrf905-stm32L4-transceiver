@@ -139,7 +139,7 @@ bool nrf905_get_rx_data(struct nrf905_obj *obj, uint8_t *data, uint8_t size)
     uint8_t rx_payload[33] = {0};
     rx_payload[0] = NRF905_INST_R_RX_PAYLOAD;
 
-    if (!obj->spi_transmit_cb(rx_payload, rx_payload, size + 1))
+    if (!obj->spi_transmit_cb(rx_payload, rx_payload, sizeof(rx_payload)))
         return false;
 
     memcpy(data, rx_payload + 1, size);

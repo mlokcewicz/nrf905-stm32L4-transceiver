@@ -17,6 +17,7 @@ int main()
     hal_init();
 
     hal_radio_test();
+    hal_radio_test_hw();
 
     while (1)
     {

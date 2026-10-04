@@ -725,6 +725,7 @@ bool hal_init(void)
 
 void hal_radio_test(void)
 {
+     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
      nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
     
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
@@ -740,9 +741,52 @@ void hal_radio_test(void)
     nrf905_get_status(&nrf905_2_obj, &status2);
     printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_2_obj);
     
-    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = {0};
+    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD) + 1] = {0};
     nrf905_get_rx_data(&nrf905_2_obj, received_data, payload_len);
+    received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = 0;
     printf("Received data: %s, on %p\n", received_data, &nrf905_2_obj);
+
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
+    nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_STANDBY); 
+}
+
+void hal_radio_test_hw(void)
+{
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+    nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
+
+    /* Prepare SPI3 for RX when DR is high */
+
+    SPI3->CR1 &= ~SPI_CR1_SPE;
+    SPI3->CR2 |= SPI_CR2_RXDMAEN;
+    SPI3->CR2 |= SPI_CR2_TXDMAEN;
+
+    uint8_t received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+    received_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
+    spi3_dma_config((uintptr_t)&SPI3->DR, received_data, received_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1);
+    // SPI3->CR1 |= SPI_CR1_SPE;
+
+    
+    unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
+    uint8_t payload_len = strlen((char*)payload);
+    uint32_t tx_addr = HAL_RADIO_TEST_TX_ADDRESS;
+    printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_1_obj);
+    nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, payload_len);   
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+    
+    systick_delay(HAL_RADIO_TEST_DELAY_MS);
+    
+    // enum nrf905_status status2 = 0;
+    // nrf905_get_status(&nrf905_2_obj, &status2);
+    // printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_2_obj);
+    
+    SPI3->CR1 |= SPI_CR1_SPE;
+    systick_delay(HAL_RADIO_TEST_DELAY_MS);
+
+
+    printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
+
+    nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_STANDBY); 
 }
 
 void hal_led_toggle(void)
