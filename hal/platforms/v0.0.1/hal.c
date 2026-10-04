@@ -768,7 +768,7 @@ void hal_radio_rx_config(void)
     SPI3->CR2 |= SPI_CR2_TXDMAEN;
 
     request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
-    spi3_dma_config_internal((uintptr_t)&SPI3->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, false, false, NULL, NULL);
+    spi3_dma_config_internal((uintptr_t)&SPI3->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
 
     /* Prepare TIM4 input capture DMA requet generation on NRF 2 DR pin */
     RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
@@ -812,6 +812,14 @@ void hal_radio_rx_config(void)
     /* Remove tc callback from SPI3 DMA RX and TX config */
     DMA2_Channel1->CCR &= ~DMA_CCR_TCIE;
     DMA2_Channel2->CCR &= ~DMA_CCR_TCIE;
+}
+
+void hal_radio_rx_config2(void)
+{
+    DMA2_Channel2->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel2->CNDTR = HAL_RADIO_TX_PAYLOAD_SIZE + 1;
+    DMA2_Channel2->CCR |= DMA_CCR_EN;
+
 }
 
 void hal_radio_loopback_test(void)
