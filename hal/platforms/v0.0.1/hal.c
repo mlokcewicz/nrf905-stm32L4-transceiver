@@ -808,10 +808,6 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim3_spi_start_cfg);
     dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_5);
-
-    /* Remove tc callback from SPI3 DMA RX and TX config */
-    DMA2_Channel1->CCR &= ~DMA_CCR_TCIE;
-    DMA2_Channel2->CCR &= ~DMA_CCR_TCIE;
 }
 
 void hal_radio_rx_config2(void)
@@ -819,7 +815,6 @@ void hal_radio_rx_config2(void)
     DMA2_Channel2->CCR &= ~DMA_CCR_EN;
     DMA2_Channel2->CNDTR = HAL_RADIO_TX_PAYLOAD_SIZE + 1;
     DMA2_Channel2->CCR |= DMA_CCR_EN;
-
 }
 
 void hal_radio_loopback_test(void)

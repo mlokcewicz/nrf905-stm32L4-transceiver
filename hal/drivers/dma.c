@@ -93,49 +93,54 @@ bool dma_channel_config(const struct dma_channel_cfg *cfg)
                 ((uint32_t)cfg->peripheral_increment << DMA_CCR_PINC_Pos) |
                 ((uint32_t)cfg->circular << DMA_CCR_CIRC_Pos) |
                 ((uint32_t)cfg->direction << DMA_CCR_DIR_Pos);
-    
+
+    const IRQn_Type irq[][7] =
+    {
+        [DMA_INSTANCE_1] =
+        {
+            [DMA_CHANNEL_1] = DMA1_Channel1_IRQn,
+            [DMA_CHANNEL_2] = DMA1_Channel2_IRQn,
+            [DMA_CHANNEL_3] = DMA1_Channel3_IRQn,
+            [DMA_CHANNEL_4] = DMA1_Channel4_IRQn,
+            [DMA_CHANNEL_5] = DMA1_Channel5_IRQn,
+            [DMA_CHANNEL_6] = DMA1_Channel6_IRQn,
+            [DMA_CHANNEL_7] = DMA1_Channel7_IRQn,
+        },
+        [DMA_INSTANCE_2] =
+        {
+            [DMA_CHANNEL_1] = DMA2_Channel1_IRQn,
+            [DMA_CHANNEL_2] = DMA2_Channel2_IRQn,
+            [DMA_CHANNEL_3] = DMA2_Channel3_IRQn,
+            [DMA_CHANNEL_4] = DMA2_Channel4_IRQn,
+            [DMA_CHANNEL_5] = DMA2_Channel5_IRQn,
+            [DMA_CHANNEL_6] = DMA2_Channel6_IRQn,
+            [DMA_CHANNEL_7] = DMA2_Channel7_IRQn,
+        },
+    };
+
+    const uint32_t tc_flag[] =
+    {
+        [DMA_CHANNEL_1] = DMA_IFCR_CTCIF1,
+        [DMA_CHANNEL_2] = DMA_IFCR_CTCIF2,
+        [DMA_CHANNEL_3] = DMA_IFCR_CTCIF3,
+        [DMA_CHANNEL_4] = DMA_IFCR_CTCIF4,
+        [DMA_CHANNEL_5] = DMA_IFCR_CTCIF5,
+        [DMA_CHANNEL_6] = DMA_IFCR_CTCIF6,
+        [DMA_CHANNEL_7] = DMA_IFCR_CTCIF7,
+    };
+
     if (context->tc)
     {
-        const IRQn_Type irq[][7] =
-        {
-            [DMA_INSTANCE_1] =
-            {
-                [DMA_CHANNEL_1] = DMA1_Channel1_IRQn,
-                [DMA_CHANNEL_2] = DMA1_Channel2_IRQn,
-                [DMA_CHANNEL_3] = DMA1_Channel3_IRQn,
-                [DMA_CHANNEL_4] = DMA1_Channel4_IRQn,
-                [DMA_CHANNEL_5] = DMA1_Channel5_IRQn,
-                [DMA_CHANNEL_6] = DMA1_Channel6_IRQn,
-                [DMA_CHANNEL_7] = DMA1_Channel7_IRQn,
-            },
-            [DMA_INSTANCE_2] =
-            {
-                [DMA_CHANNEL_1] = DMA2_Channel1_IRQn,
-                [DMA_CHANNEL_2] = DMA2_Channel2_IRQn,
-                [DMA_CHANNEL_3] = DMA2_Channel3_IRQn,
-                [DMA_CHANNEL_4] = DMA2_Channel4_IRQn,
-                [DMA_CHANNEL_5] = DMA2_Channel5_IRQn,
-                [DMA_CHANNEL_6] = DMA2_Channel6_IRQn,
-                [DMA_CHANNEL_7] = DMA2_Channel7_IRQn,
-            },
-        };
-        
-        const uint32_t tc_flag[] =
-        {
-            [DMA_CHANNEL_1] = DMA_IFCR_CTCIF1,
-            [DMA_CHANNEL_2] = DMA_IFCR_CTCIF2,
-            [DMA_CHANNEL_3] = DMA_IFCR_CTCIF3,
-            [DMA_CHANNEL_4] = DMA_IFCR_CTCIF4,
-            [DMA_CHANNEL_5] = DMA_IFCR_CTCIF5,
-            [DMA_CHANNEL_6] = DMA_IFCR_CTCIF6,
-            [DMA_CHANNEL_7] = DMA_IFCR_CTCIF7,
-        };
-
         DMA_TypeDef *dma_base = cfg->inst == DMA_INSTANCE_1 ? DMA1 : DMA2;
         dma_base->IFCR = tc_flag[cfg->channel];
         base->CCR |= DMA_CCR_TCIE;
 
         NVIC_EnableIRQ(irq[cfg->inst][cfg->channel]);
+    }
+    else
+    {
+        base->CCR &= ~DMA_CCR_TCIE;
+        NVIC_DisableIRQ(irq[cfg->inst][cfg->channel]);
     }
 
     base->CCR |= DMA_CCR_EN;
