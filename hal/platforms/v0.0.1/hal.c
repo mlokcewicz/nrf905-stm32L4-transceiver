@@ -819,7 +819,6 @@ void hal_radio_test_hw(void)
     printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
 
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
-    nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_STANDBY); 
 }
 
 void hal_led_toggle(void)
