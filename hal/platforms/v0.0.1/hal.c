@@ -325,7 +325,7 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     dma_channel_config(&tx_cfg);
 }
 
-static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
+static void spi3_dma_config_internal(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len, bool circular_rx, bool circular_tx, void (*rx_tc)(void), void (*tx_tc)(void))
 {
     static uint8_t dummy_rx;
     static uint8_t dummy_tx = HAL_SPI_DUMMY_BYTE;
@@ -334,7 +334,7 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI3_DMA_INSTANCE,
         .channel = HAL_SPI3_DMA_RX_CHANNEL,
-        .tc = spi3_dma_rx_tc,
+        .tc = rx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
         .count = len,
@@ -344,7 +344,7 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
         .priority = DMA_PRIORITY_LOW,
         .memory_increment = data_rx != NULL,
         .peripheral_increment = false,
-        .circular = false,
+        .circular = circular_rx,
         .memory_to_memory = false,
     };
 
@@ -352,7 +352,7 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_SPI3_DMA_INSTANCE,
         .channel = HAL_SPI3_DMA_TX_CHANNEL,
-        .tc = spi3_dma_tx_tc,
+        .tc = tx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
         .count = len,
@@ -362,12 +362,17 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
         .priority = DMA_PRIORITY_LOW,
         .memory_increment = data_tx != NULL,
         .peripheral_increment = false,
-        .circular = false,
+        .circular = circular_tx,
         .memory_to_memory = false,
     };
 
     dma_channel_config(&rx_cfg);
     dma_channel_config(&tx_cfg);
+}
+
+static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
+{
+    spi3_dma_config_internal(periph_address, data_rx, data_tx, len, false, false, spi3_dma_rx_tc, spi3_dma_tx_tc);
 }
 
 static void spi2_cs_write(bool state)
@@ -750,9 +755,11 @@ void hal_radio_test(void)
     nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_STANDBY); 
 }
 
-void hal_radio_test_hw(void)
+static uint8_t request_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+static uint8_t received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+
+void hal_radio_rx_config(void)
 {
-    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
     nrf905_set_mode(&nrf905_2_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
 
     /* Prepare SPI3 for RX when DR is high */
@@ -760,10 +767,8 @@ void hal_radio_test_hw(void)
     SPI3->CR2 |= SPI_CR2_RXDMAEN;
     SPI3->CR2 |= SPI_CR2_TXDMAEN;
 
-    uint8_t received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
-    received_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
-    spi3_dma_config((uintptr_t)&SPI3->DR, received_data, received_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1);
-    // SPI3->CR1 |= SPI_CR1_SPE;
+    request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
+    spi3_dma_config_internal((uintptr_t)&SPI3->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, false, false, NULL, NULL);
 
     /* Prepare TIM4 input capture DMA requet generation on NRF 2 DR pin */
     RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
@@ -781,6 +786,7 @@ void hal_radio_test_hw(void)
     static uint32_t spi3_cr1_data[2] = {0};
     spi3_cr1_data[0] = SPI3->CR1 | SPI_CR1_SPE;
     spi3_cr1_data[1] = SPI3->CR1 & ~SPI_CR1_SPE;
+
     dma_init(DMA_INSTANCE_1);
     struct dma_channel_cfg tim3_spi_start_cfg =
     {
@@ -796,7 +802,7 @@ void hal_radio_test_hw(void)
         .priority = DMA_PRIORITY_LOW,
         .memory_increment = true,
         .peripheral_increment = false,
-        .circular = false,
+        .circular = true,
         .memory_to_memory = false,
     };
 
@@ -806,6 +812,11 @@ void hal_radio_test_hw(void)
     /* Remove tc callback from SPI3 DMA RX and TX config */
     DMA2_Channel1->CCR &= ~DMA_CCR_TCIE;
     DMA2_Channel2->CCR &= ~DMA_CCR_TCIE;
+}
+
+void hal_radio_loopback_test(void)
+{
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
 
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
@@ -816,7 +827,11 @@ void hal_radio_test_hw(void)
     
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
 
+    /* Hardware magic */
+
     printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
+
+    memset(received_data + 1, 0x00, payload_len);
 
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
 }
