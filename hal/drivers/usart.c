@@ -98,6 +98,7 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
     obj->udre_cb = cfg->udre_cb;
     obj->rxc_cb = cfg->rxc_cb;
     obj->txc_cb = cfg->txc_cb;
+    obj->dma_config = cfg->dma_config;
 
     obj->inst = cfg->inst;
 
@@ -141,8 +142,11 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
     base->CR1 &= ~USART_CR1_RE;
     base->CR1 |= !!(cfg->rx_tx & USART_RX_ENABLE) << USART_CR1_RE_Pos;
     
-    /* Enable USART */
-    base->CR1 |= USART_CR1_UE;
+    if (obj->dma_config)
+    {
+        base->CR3 |= USART_CR3_DMAT;
+        base->CR3 |= USART_CR3_DMAR;
+    }
 
 
     return true;
@@ -155,6 +159,15 @@ void usart_send(struct usart_obj *obj, uint8_t *data, uint32_t len)
 
     USART_TypeDef *base = usart_base[obj->inst];
 
+    if (obj->dma_config)
+    {
+        obj->dma_config((uintptr_t)&base->TDR, data, len, false);
+        base->CR1 |= USART_CR1_UE;
+        return;
+    }
+
+    base->CR1 |= USART_CR1_UE;
+
     uint32_t pos = 0;
 
     while (len--)
@@ -165,6 +178,20 @@ void usart_send(struct usart_obj *obj, uint8_t *data, uint32_t len)
     }
 
     while (!(base->ISR & USART_ISR_TC));
+
+    base->CR1 &= ~USART_CR1_UE;
+}
+
+void usart_send_finish(struct usart_obj *obj)
+{
+    if (!obj)
+        return;
+
+    USART_TypeDef *base = usart_base[obj->inst];
+
+    while (!(base->ISR & USART_ISR_TC));
+
+    base->CR1 &= ~USART_CR1_UE;
 }
 
 bool usart_receive(struct usart_obj *obj, uint8_t *data, uint32_t len)
@@ -174,6 +201,15 @@ bool usart_receive(struct usart_obj *obj, uint8_t *data, uint32_t len)
 
     USART_TypeDef *base = usart_base[obj->inst];
 
+    if (obj->dma_config)
+    {
+        obj->dma_config((uintptr_t)&base->RDR, data, len, true);
+        base->CR1 |= USART_CR1_UE;
+        return true;
+    }
+
+    base->CR1 |= USART_CR1_UE;
+
     uint32_t pos = 0;
 
     while (len--)
@@ -182,6 +218,8 @@ bool usart_receive(struct usart_obj *obj, uint8_t *data, uint32_t len)
 
         data[pos++] = base->RDR;
     }
+
+    base->CR1 &= ~USART_CR1_UE;
 
     return true;
 }

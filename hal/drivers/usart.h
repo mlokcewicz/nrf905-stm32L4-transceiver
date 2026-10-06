@@ -23,6 +23,7 @@ typedef bool (*usart_io_init_cb)(void); // Return true if I/O initialization suc
 typedef bool (*usart_udre_cb)(volatile uint8_t *data_to_send); // Return true to continue transmission
 typedef bool (*usart_rxc_cb)(volatile uint8_t data_received, volatile bool error); // Return true to continue reception
 typedef void (*usart_txc_cb)(void);
+typedef void (*usart_dma_config_cb)(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx); 
 
 //------------------------------------------------------------------------------
 
@@ -86,6 +87,7 @@ struct usart_cfg
     usart_udre_cb udre_cb;
     usart_rxc_cb rxc_cb;
     usart_txc_cb txc_cb;
+    usart_dma_config_cb dma_config;
 };
 
 struct usart_obj 
@@ -94,6 +96,7 @@ struct usart_obj
     usart_udre_cb udre_cb;
     usart_rxc_cb rxc_cb;
     usart_txc_cb txc_cb;
+    usart_dma_config_cb dma_config;
 };
 
 //------------------------------------------------------------------------------
@@ -115,6 +118,10 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg);
 /// @param data data to send pointer
 /// @param len data to send length 
 void usart_send(struct usart_obj *obj, uint8_t *data, uint32_t len);
+
+/// @brief Waits for the transmission to finish and disables the USART peripheral
+/// @param obj Pointer to the USART instance object @ref usart_obj
+void usart_send_finish(struct usart_obj *obj);
 
 /// @brief Receives given amount of data and stores in buffer pointed by data
 /// @param obj Pointer to the USART instance object @ref usart_obj

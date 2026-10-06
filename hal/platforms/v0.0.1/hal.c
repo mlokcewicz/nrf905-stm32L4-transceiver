@@ -166,6 +166,8 @@ static volatile bool spi2_dma_tx_done;
 static volatile bool spi3_dma_rx_done;
 static volatile bool spi3_dma_tx_done;
 
+static volatile bool usart2_tx_done;
+
 //------------------------------------------------------------------------------
 /* Hardfault handling */
 
@@ -243,7 +245,10 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 int __io_putchar(int ch)
 {
+    usart2_tx_done = false;
     usart_send(&usart2_obj, (uint8_t *)&ch, 1);
+    while (!usart2_tx_done) {};
+    
     return 1;
 }
 
@@ -256,6 +261,60 @@ static bool usart_io_init(void)
     GPIO_CONFIG(HAL_UART_RX_PORT, HAL_UART_RX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
 
     return true;
+}
+
+static void usart2_tx_dma_tc(void)
+{
+    usart_send_finish(&usart2_obj);
+    usart2_tx_done = true;
+}
+
+static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
+{
+    if (is_rx)
+    {
+        struct dma_channel_cfg rx_cfg =
+        {
+            .inst = DMA_INSTANCE_1,
+            .channel = DMA_CHANNEL_6,
+            .tc = NULL,
+            .peripheral_address = periph_address,
+            .memory_address = (uintptr_t)data,
+            .count = len,
+            .peripheral_size = DMA_DATA_SIZE_8_BIT,
+            .memory_size = DMA_DATA_SIZE_8_BIT,
+            .direction = DMA_PERIPHERAL_TO_MEMORY,
+            .priority = DMA_PRIORITY_LOW,
+            .memory_increment = true,
+            .peripheral_increment = false,
+            .circular = false,
+            .memory_to_memory = false,
+        };
+
+        dma_channel_config(&rx_cfg);
+    }
+    else
+    {
+        struct dma_channel_cfg tx_cfg =
+        {
+            .inst = DMA_INSTANCE_1,
+            .channel = DMA_CHANNEL_7,
+            .tc = usart2_tx_dma_tc,
+            .peripheral_address = periph_address,
+            .memory_address = (uintptr_t)data,
+            .count = len,
+            .peripheral_size = DMA_DATA_SIZE_8_BIT,
+            .memory_size = DMA_DATA_SIZE_8_BIT,
+            .direction = DMA_MEMORY_TO_PERIPHERAL,
+            .priority = DMA_PRIORITY_LOW,
+            .memory_increment = true,
+            .peripheral_increment = false,
+            .circular = false,
+            .memory_to_memory = false,
+        };
+
+        dma_channel_config(&tx_cfg);
+    }
 }
 
 static void spi2_dma_rx_tc(void)
@@ -584,6 +643,7 @@ bool hal_init(void)
         .oversampling = HAL_UART_OVERSAMPLING,
         .baudrate = HAL_UART_BAUDRATE,
         .io_init = usart_io_init,
+        .dma_config = usart2_dma_config,
     };
 
     if (!usart_init(&usart2_obj, &usart_cfg))
@@ -603,6 +663,12 @@ bool hal_init(void)
         return false;
 
     if (!dma_channel_link(HAL_SPI3_DMA_INSTANCE, HAL_SPI3_DMA_TX_CHANNEL, HAL_SPI3_DMA_REQUEST))
+        return false;
+
+    if (!dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_2)) /* USART2 RX */
+        return false;
+
+    if (!dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_7, DMA_REQUEST_2)) /* USART2 RX */
         return false;
 
     /* NRF 1 */    
