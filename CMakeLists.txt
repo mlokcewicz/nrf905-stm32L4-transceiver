@@ -10,6 +10,8 @@ project("nrf905_stm32l4_transceiver" C CXX ASM)
 include_directories(app)
 
 # Configurable radio settings (override with -DNAME=value)
+option(CONFIG_TRANSMITTER_EN "Enable the nRF TX radio" ON)
+option(CONFIG_RECEIVER_EN "Enable the nRF RX radio" ON)
 set(CONFIG_RADIO_RX_ADDRESS "0xDDCCBBAAUL" CACHE STRING "Radio receive address")
 set(CONFIG_RADIO_TX_ADDRESS "CONFIG_RADIO_RX_ADDRESS" CACHE STRING "Radio transmit address; defaults to the receive address")
 set(CONFIG_RADIO_CHANNEL "108" CACHE STRING "nRF905 channel number")
@@ -29,4 +31,9 @@ target_compile_definitions(platform PRIVATE
     CONFIG_RADIO_CHANNEL=${CONFIG_RADIO_CHANNEL}
     CONFIG_RADIO_BAND=${CONFIG_RADIO_BAND}
     CONFIG_RADIO_TX_POWER=${CONFIG_RADIO_TX_POWER}
+)
+
+target_compile_definitions(platform PUBLIC
+    CONFIG_TRANSMITTER_EN=$<BOOL:${CONFIG_TRANSMITTER_EN}>
+    CONFIG_RECEIVER_EN=$<BOOL:${CONFIG_RECEIVER_EN}>
 )

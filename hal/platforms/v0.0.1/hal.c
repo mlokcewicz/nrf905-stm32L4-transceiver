@@ -157,23 +157,25 @@
 /* Static objects */
 
 static struct usart_obj usart2_obj = {0};
-static struct spi_obj spi2_obj = {0};
-static struct spi_obj spi3_obj = {0};
-
-static struct nrf905_obj nrf905_tx_obj;
-static struct nrf905_obj nrf905_rx_obj;
-
-static volatile bool spi2_dma_rx_done;
-static volatile bool spi2_dma_tx_done;
-static volatile bool spi3_dma_rx_done;
-static volatile bool spi3_dma_tx_done;
-
 static volatile bool usart2_tx_done;
 static volatile bool usart2_rx_done;
 
+#if CONFIG_TRANSMITTER_EN
+static struct spi_obj spi2_obj = {0};
+static struct nrf905_obj nrf905_tx_obj;
+static volatile bool spi2_dma_rx_done;
+static volatile bool spi2_dma_tx_done;
 static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
+#endif
+
+#if CONFIG_RECEIVER_EN
+static struct spi_obj spi3_obj = {0};
+static struct nrf905_obj nrf905_rx_obj;
+static volatile bool spi3_dma_rx_done;
+static volatile bool spi3_dma_tx_done;
 static uint8_t nrf_get_payload_request_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
 static uint8_t nrf_get_payload_received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+#endif
 
 //------------------------------------------------------------------------------
 /* Hardfault handling */
@@ -327,6 +329,7 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
     }
 }
 
+#if CONFIG_TRANSMITTER_EN
 static void spi2_dma_rx_tc(void)
 {
     spi_transmit_finish(&spi2_obj);
@@ -337,7 +340,10 @@ static void spi2_dma_tx_tc(void)
 {
     spi2_dma_tx_done = true;
 }
+#endif
 
+
+#if CONFIG_RECEIVER_EN
 static void spi3_dma_rx_tc(void)
 {
     spi_transmit_finish(&spi3_obj);
@@ -348,7 +354,10 @@ static void spi3_dma_tx_tc(void)
 {
     spi3_dma_tx_done = true;
 }
+#endif
 
+
+#if CONFIG_TRANSMITTER_EN
 static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
 {
     static uint8_t dummy_rx;
@@ -393,7 +402,10 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     dma_channel_config(&rx_cfg);
     dma_channel_config(&tx_cfg);
 }
+#endif
 
+
+#if CONFIG_RECEIVER_EN
 static void spi3_dma_config_internal(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len, bool circular_rx, bool circular_tx, void (*rx_tc)(void), void (*tx_tc)(void))
 {
     static uint8_t dummy_rx;
@@ -443,7 +455,10 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
 {
     spi3_dma_config_internal(periph_address, data_rx, data_tx, len, false, false, spi3_dma_rx_tc, spi3_dma_tx_tc);
 }
+#endif
 
+
+#if CONFIG_TRANSMITTER_EN
 static void spi2_cs_write(bool state)
 {
     GPIO_SET(HAL_NRF_TX_CS_PORT, HAL_NRF_TX_CS_PIN, state);
@@ -458,7 +473,10 @@ static bool spi2_io_init(void)
 
     return true;
 }
+#endif
 
+
+#if CONFIG_RECEIVER_EN
 static void spi3_cs_write(bool state)
 {
     GPIO_SET(HAL_NRF_RX_CS_PORT, HAL_NRF_RX_CS_PIN, state);
@@ -473,10 +491,13 @@ static bool spi3_io_init(void)
 
     return true;
 }
+#endif
+
 
 //------------------------------------------------------------------------------
 /* External drivers initialization */
 
+#if CONFIG_TRANSMITTER_EN
 static bool nrf905_tx_io_init_cb(void)
 {
     GPIO_CONFIG(HAL_NRF_TX_TXE_PORT, HAL_NRF_TX_TXE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
@@ -526,7 +547,10 @@ static bool nrf905_tx_pin_get_cb(enum nrf905_pin pin)
 
     return true;
 }
+#endif
 
+
+#if CONFIG_RECEIVER_EN
 static bool nrf905_rx_io_init_cb(void)
 {
     GPIO_CONFIG(HAL_NRF_RX_CE_PORT, HAL_NRF_RX_CE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
@@ -576,6 +600,7 @@ static bool nrf905_rx_pin_get_cb(enum nrf905_pin pin)
 
     return true;
 }
+#endif
 
 //------------------------------------------------------------------------------
 
@@ -637,21 +662,27 @@ bool hal_init(void)
     if (!usart_init(&usart2_obj, &usart_cfg))
         return false;
 
-    /* DMA for SPI2 and SPI3 */
+    dma_init(HAL_USART_DMA_INSTANCE);
+
+#if CONFIG_TRANSMITTER_EN
     dma_init(HAL_NRF_TX_SPI_DMA_INSTANCE);
-    dma_init(HAL_NRF_RX_SPI_DMA_INSTANCE);
 
     if (!dma_channel_link(HAL_NRF_TX_SPI_DMA_INSTANCE, HAL_NRF_TX_SPI_DMA_RX_CHANNEL, HAL_NRF_TX_SPI_DMA_REQUEST))
         return false;
 
     if (!dma_channel_link(HAL_NRF_TX_SPI_DMA_INSTANCE, HAL_NRF_TX_SPI_DMA_TX_CHANNEL, HAL_NRF_TX_SPI_DMA_REQUEST))
         return false;
+#endif
+
+#if CONFIG_RECEIVER_EN
+    dma_init(HAL_NRF_RX_SPI_DMA_INSTANCE);
 
     if (!dma_channel_link(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_RX_CHANNEL, HAL_NRF_RX_SPI_DMA_REQUEST))
         return false;
 
     if (!dma_channel_link(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_TX_CHANNEL, HAL_NRF_RX_SPI_DMA_REQUEST))
         return false;
+#endif
 
     if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_RX_CHANNEL, HAL_USART_DMA_REQUEST)) /* USART2 RX */
         return false;
@@ -659,6 +690,7 @@ bool hal_init(void)
     if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_TX_CHANNEL, HAL_USART_DMA_REQUEST)) /* USART2 RX */
         return false;
 
+#if CONFIG_TRANSMITTER_EN
     /* NRF TX */    
     struct spi_cfg spi_cfg2 =
     {
@@ -706,7 +738,9 @@ bool hal_init(void)
         printf("nRF905 TX init failed!\n");   
         return false;
     }
+#endif
 
+#if CONFIG_RECEIVER_EN
         /* NRF RX */
     struct spi_cfg spi_cfg3 =
     {
@@ -754,12 +788,14 @@ bool hal_init(void)
         printf("nRF905 RX init failed!\n");
         return false;
     }
+#endif
 
     return true;
 }
 
 void hal_radio_rx_config(void)
 {
+#if CONFIG_RECEIVER_EN
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
 
     /* Prepare SPI3 for RX when DR is high */
@@ -808,17 +844,21 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim5_spi_start_cfg);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_5, DMA_REQUEST_5);
+#endif
 }
 
 void hal_radio_rx_config_reload(void)
 {
+#if CONFIG_RECEIVER_EN
     DMA2_Channel2->CCR &= ~DMA_CCR_EN;
     DMA2_Channel2->CNDTR = HAL_RADIO_TX_PAYLOAD_SIZE + 1;
     DMA2_Channel2->CCR |= DMA_CCR_EN;
+#endif
 }
 
 void hal_radio_tx_send(void)
 {
+#if CONFIG_TRANSMITTER_EN
     unsigned char *payload = usart2_rx_payload;
     printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
     nrf905_set_tx_data(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS, payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
@@ -828,15 +868,19 @@ void hal_radio_tx_send(void)
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
+#if CONFIG_RECEIVER_EN
     /* Hardware magic */
 
     printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
 
     memset(nrf_get_payload_received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
+#endif
+#endif
 }
 
 void hal_radio_loopback_test(void)
 {
+#if CONFIG_TRANSMITTER_EN && CONFIG_RECEIVER_EN
      nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
      nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
     
@@ -860,10 +904,12 @@ void hal_radio_loopback_test(void)
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
+#endif
 }
 
 void hal_radio_loopback_test_hw_driven(void)
 {
+#if CONFIG_TRANSMITTER_EN && CONFIG_RECEIVER_EN
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
     uint32_t tx_addr = CONFIG_RADIO_RX_ADDRESS;
@@ -880,13 +926,16 @@ void hal_radio_loopback_test_hw_driven(void)
     printf("Received data: %.*s, on %p\n", payload_len, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
 
     memset(nrf_get_payload_received_data + 1, 0x00, payload_len);
+#endif
 }
 
 void hal_uart_wait_for_msg(void)
 {
+#if CONFIG_TRANSMITTER_EN
     usart2_rx_done = false;
     usart_receive(&usart2_obj, usart2_rx_payload, sizeof(usart2_rx_payload));
     while(!usart2_rx_done) {}
+#endif
 }
 
 void hal_led_toggle(void)

@@ -51,3 +51,6 @@ cmake --build --preset v0.0.1_debug
 ```
 
 Values persist in the build directory's CMake cache. Reconfigure and rebuild after changing them.
+
+`CONFIG_TRANSMITTER_EN` and `CONFIG_RECEIVER_EN` are independent ON/OFF options, both ON by default. They include or exclude the respective radio initialization, SPI/DMA callbacks, buffers and radio functions. Public HAL functions remain available and do nothing when their radio is disabled. Loopback tests run only with both options enabled. With the transmitter disabled, the main loop does not wait for UART messages.
+

@@ -15,7 +15,7 @@
 
 //------------------------------------------------------------------------------
 
-/// @brief Initializes system clocks, SysTick, watchdog, LED, USART2, SPI2/SPI3 and both nRF905 radios
+/// @brief Initializes system clocks, SysTick, watchdog, LED, USART2, SPI and the enabled nRF905 radios
 /// @note Configures the system clock to 40 MHz and USART2 to 115200 baud; prints radio diagnostics
 /// @note Starts the watchdog with a nominal 32.768 s timeout; initialization failure does not stop it
 /// @return true if USART, SPI and radio initialization succeeds, otherwise false
@@ -51,7 +51,7 @@ void hal_radio_rx_config(void);
 void hal_radio_rx_config_reload(void);
 
 /// @brief Sends a 32-byte payload from nRF TX to the configured radio address
-/// @note Requires hal_init(), nRF TX in standby and configured nRF RX hardware reception with SPI TX DMA ready
+/// @note Requires hal_init(), nRF TX in standby; when the receiver is enabled, its hardware reception and SPI TX DMA must be ready
 void hal_radio_tx_send(void);
 
 /// @brief Runs a blocking radio test transmitting RADIOMSG from nRF TX to nRF RX
