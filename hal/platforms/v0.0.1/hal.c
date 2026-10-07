@@ -172,6 +172,8 @@ static volatile bool usart2_tx_done;
 static volatile bool usart2_rx_done;
 
 static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
+static uint8_t nrf_get_payload_request_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+static uint8_t nrf_get_payload_received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
 
 //------------------------------------------------------------------------------
 /* Hardfault handling */
@@ -269,7 +271,6 @@ static bool usart_io_init(void)
 static void usart2_rx_dma_tc(void)
 {
     usart2_rx_done = true;
-    // hal_radio_tx_send(usart2_rx_payload);
 }
 
 static void usart2_tx_dma_tc(void)
@@ -576,28 +577,6 @@ static bool nrf905_rx_pin_get_cb(enum nrf905_pin pin)
     return true;
 }
 
-/*
-nRF TX:
-CE  - PC8 - standby, (hi - on)
-TXE - PC5 - (hi - tx, low - rx)
-PWR - PC6 - (hi - on)
-DR  - PC9 (hi - tx finished or new data received)
-SO  - MISO
-SI  - MOSI
-SCK - clock
-CSN - CS
-
-nRF RX:
-CE  - PC0 - standby, (hi - on)
-TXE - PC1 - (hi - tx, low - rx)
-PWR - PC2 - (hi - on)
-DR  - PC3 - (hi - tx finished or new data received)
-SCK - PC10
-SO - PC11
-SI - PC12
-CS - PC13
-*/
-
 //------------------------------------------------------------------------------
 
 bool hal_init(void)
@@ -723,24 +702,12 @@ bool hal_init(void)
     };
 
     if (!nrf905_init(&nrf905_tx_obj, &nrf905_tx_cfg))
+    {
+        printf("nRF905 TX init failed!\n");   
         return false;
+    }
 
-    /* Allow the nRF905 to enter standby after PWR_UP rises. */
-    systick_delay(HAL_RADIO_STARTUP_DELAY_MS);
-
-    /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
-    uint8_t data_tx[] = {HAL_RADIO_READ_CONFIG_0, HAL_NRF_SPI_DUMMY_BYTE};
-    uint8_t data_rx[sizeof(data_tx)] = {0};
-
-    /* Keep CS low until both DMA channels complete. */
-    spi2_dma_rx_done = false;
-    spi2_dma_tx_done = false;
-    spi_transmit(&spi2_obj, data_rx, data_tx, sizeof(data_tx));
-    while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
-
-    printf("nRF905 TX status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx[0], (unsigned int)data_rx[1]);
-
-    /* NRF RX */
+        /* NRF RX */
     struct spi_cfg spi_cfg3 =
     {
         .inst = HAL_NRF_RX_SPI_INSTANCE,
@@ -783,55 +750,13 @@ bool hal_init(void)
     };
 
     if (!nrf905_init(&nrf905_rx_obj, &nrf905_rx_cfg))
+    {
+        printf("nRF905 RX init failed!\n");
         return false;
-
-    /* Allow the nRF905 to enter standby after PWR_UP rises. */
-    systick_delay(HAL_RADIO_STARTUP_DELAY_MS);
-
-    /* R_CONFIG(0): the command returns status; the dummy byte clocks out register 0. */
-    uint8_t data_tx3[] = {HAL_RADIO_READ_CONFIG_0, HAL_NRF_SPI_DUMMY_BYTE};
-    uint8_t data_rx3[sizeof(data_tx3)] = {0};
-
-    /* Keep CS low until both DMA channels complete. */
-    spi3_dma_rx_done = false;
-    spi3_dma_tx_done = false;
-    spi_transmit(&spi3_obj, data_rx3, data_tx3, sizeof(data_tx3));
-    while (!spi3_dma_rx_done || !spi3_dma_tx_done) {}
-
-    printf("nRF905 RX status: 0x%02X, CONFIG[0]: 0x%02X\n", (unsigned int)data_rx3[0], (unsigned int)data_rx3[1]);
+    }
 
     return true;
 }
-
-void hal_radio_test(void)
-{
-     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
-     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
-    
-    unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
-    uint8_t payload_len = strlen((char*)payload);
-    uint32_t tx_addr = CONFIG_RADIO_TX_ADDRESS;
-    printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_tx_obj);
-    nrf905_set_tx_data(&nrf905_tx_obj, tx_addr, payload, payload_len);   
-    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
-    
-    systick_delay(HAL_RADIO_TEST_DELAY_MS);
-    
-    enum nrf905_status status2 = 0;
-    nrf905_get_status(&nrf905_rx_obj, &status2);
-    printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_rx_obj);
-    
-    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD) + 1] = {0};
-    nrf905_get_rx_data(&nrf905_rx_obj, received_data, payload_len);
-    received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = 0;
-    printf("Received data: %s, on %p\n", received_data, &nrf905_rx_obj);
-
-    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
-    nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_STANDBY); 
-}
-
-static uint8_t request_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
-static uint8_t received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
 
 void hal_radio_rx_config(void)
 {
@@ -842,8 +767,8 @@ void hal_radio_rx_config(void)
     HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_RXDMAEN;
     HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_TXDMAEN;
 
-    request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
-    spi3_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
+    nrf_get_payload_request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
+    spi3_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, nrf_get_payload_received_data, nrf_get_payload_request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
 
     /* Prepare TIM5 input capture DMA requet generation on NRF RX DR pin */
     RCC->APB1ENR1 |= RCC_APB1ENR1_TIM5EN;
@@ -885,7 +810,7 @@ void hal_radio_rx_config(void)
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_5, DMA_REQUEST_5);
 }
 
-void hal_radio_rx_config2(void)
+void hal_radio_rx_config_reload(void)
 {
     DMA2_Channel2->CCR &= ~DMA_CCR_EN;
     DMA2_Channel2->CNDTR = HAL_RADIO_TX_PAYLOAD_SIZE + 1;
@@ -905,16 +830,43 @@ void hal_radio_tx_send(void)
 
     /* Hardware magic */
 
-    printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, received_data + 1, &nrf905_rx_obj);
+    printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
 
-    memset(received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
+    memset(nrf_get_payload_received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
 }
 
 void hal_radio_loopback_test(void)
 {
+     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
+    
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
     uint32_t tx_addr = CONFIG_RADIO_TX_ADDRESS;
+    printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_tx_obj);
+    nrf905_set_tx_data(&nrf905_tx_obj, tx_addr, payload, payload_len);   
+    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+    
+    systick_delay(HAL_RADIO_TEST_DELAY_MS);
+    
+    enum nrf905_status status2 = 0;
+    nrf905_get_status(&nrf905_rx_obj, &status2);
+    printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_rx_obj);
+    
+    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD) + 1] = {0};
+    nrf905_get_rx_data(&nrf905_rx_obj, received_data, payload_len);
+    received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = 0;
+    printf("Received data: %s, on %p\n", received_data, &nrf905_rx_obj);
+
+    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
+    nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
+}
+
+void hal_radio_loopback_test_hw_driven(void)
+{
+    unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
+    uint8_t payload_len = strlen((char*)payload);
+    uint32_t tx_addr = CONFIG_RADIO_RX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_tx_obj);
     nrf905_set_tx_data(&nrf905_tx_obj, tx_addr, payload, payload_len);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
@@ -925,9 +877,9 @@ void hal_radio_loopback_test(void)
 
     /* Hardware magic */
 
-    printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_rx_obj);
+    printf("Received data: %.*s, on %p\n", payload_len, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
 
-    memset(received_data + 1, 0x00, payload_len);
+    memset(nrf_get_payload_received_data + 1, 0x00, payload_len);
 }
 
 void hal_uart_wait_for_msg(void)
@@ -954,6 +906,7 @@ void hal_delay(uint32_t ms)
 
 //------------------------------------------------------------------------------
 
+#if 0
 void hal_radio_rx_config_new(void)
 {
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
@@ -963,8 +916,8 @@ void hal_radio_rx_config_new(void)
     HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_RXDMAEN;
     HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_TXDMAEN; // TX DMA requests will be generated by TIM1
 
-    request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
-    spi3_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
+    nrf_get_payload_request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
+    spi3_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, nrf_get_payload_received_data, nrf_get_payload_request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
 
     DMA2_Channel2->CCR &= ~DMA_CCR_EN; // SPI3 TX DMA is not used anymore
 
@@ -1060,7 +1013,7 @@ void hal_radio_rx_config_new(void)
         .channel = DMA_CHANNEL_2,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&HAL_NRF_RX_SPI_BASE->DR,
-        .memory_address = (uintptr_t)request_data,
+        .memory_address = (uintptr_t)nrf_get_payload_request_data,
         .count = HAL_RADIO_TX_PAYLOAD_SIZE + 1,
         .peripheral_size = DMA_DATA_SIZE_8_BIT,
         .memory_size = DMA_DATA_SIZE_8_BIT,
@@ -1078,3 +1031,5 @@ void hal_radio_rx_config_new(void)
     TIM2->SR = 0;
     TIM2->CR1 |= TIM_CR1_CEN;
 }
+
+#endif

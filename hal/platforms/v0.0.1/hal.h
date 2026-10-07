@@ -45,22 +45,24 @@ void hal_uart_wait_for_msg(void);
 /// After the payload is read, DR falls -> TIM3 requests DMA1 channel 6 -> DMA clears SPI3 CR1.SPE.
 /// SPI releases NSS and the pull-up raises CS high, ending the transaction.
 void hal_radio_rx_config(void);
-void hal_radio_rx_config2(void);
+
+/// @brief Reloads the nRF RX configuration and configures SPI3 DMA for a hardware-triggered payload read
+/// @note Requires successful hal_init() and a previously configured nRF RX instance
+void hal_radio_rx_config_reload(void);
 
 /// @brief Sends a 32-byte payload from nRF TX to the configured radio address
 /// @note Requires hal_init(), nRF TX in standby and configured nRF RX hardware reception with SPI TX DMA ready
 void hal_radio_tx_send(void);
 
-
 /// @brief Runs a blocking radio test transmitting RADIOMSG from nRF TX to nRF RX
 /// @note Requires successful hal_init(); waits 1000 ms before reading and printing receiver status and data
 /// @note Does not check operation results, restore radio modes or refresh the watchdog
-void hal_radio_test(void);
+void hal_radio_loopback_test(void);
 
 /// @brief Runs a blocking radio test transmitting RADIOMSG from nRF TX to nRF RX 
 /// @note Requires successful hal_init(); use pure HW-driven receptrion using DMA requests from DR pin over Timer
 /// @note Does not check operation results, restore radio modes or refresh the watchdog
-void hal_radio_loopback_test(void);
+void hal_radio_loopback_test_hw_driven(void);
 
 //------------------------------------------------------------------------------
 
