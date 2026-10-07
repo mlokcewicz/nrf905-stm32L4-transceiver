@@ -62,8 +62,8 @@
 #define HAL_NRF2_TXE_PIN                  1
 #define HAL_NRF2_PWR_PORT                 C
 #define HAL_NRF2_PWR_PIN                  2
-#define HAL_NRF2_DR_PORT                  B
-#define HAL_NRF2_DR_PIN                   4
+#define HAL_NRF2_DR_PORT                  A
+#define HAL_NRF2_DR_PIN                   0
 #define HAL_LED_PORT                      A
 #define HAL_LED_PIN                       5
 
@@ -142,7 +142,8 @@
 #define HAL_RADIO_TX_ADDRESS_WIDTH        NRF905_ADDR_WIDTH_4_BYTE
 #define HAL_RADIO_RX_PAYLOAD_SIZE         32
 #define HAL_RADIO_TX_PAYLOAD_SIZE         32
-#define HAL_RADIO_RX_ADDRESS              0xDDCCBBAA
+#define HAL_RADIO_RX_ADDRESS              0xDDCCBBAAUL
+#define HAL_RADIO_TX_ADDRESS              HAL_RADIO_RX_ADDRESS
 #define HAL_RADIO_OUTPUT_CLOCK_FREQ       NRF905_UP_CLK_FREQ_4_MHZ
 #define HAL_RADIO_OUTPUT_CLOCK_ENABLE     false
 #define HAL_RADIO_CRYSTAL_FREQ            NRF905_XOF_16_MHZ
@@ -155,7 +156,6 @@
 #define HAL_RADIO_READ_CONFIG_0           0b00010000
 #define HAL_SPI_DUMMY_BYTE                0x00
 #define HAL_RADIO_TEST_PAYLOAD            "nRF905 RADIO TRX TEST MSG!"
-#define HAL_RADIO_TEST_TX_ADDRESS         HAL_RADIO_RX_ADDRESS
 
 //------------------------------------------------------------------------------
 /* Hardware definitions */
@@ -178,6 +178,9 @@ static volatile bool spi3_dma_rx_done;
 static volatile bool spi3_dma_tx_done;
 
 static volatile bool usart2_tx_done;
+static volatile bool usart2_rx_done;
+
+static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
 
 //------------------------------------------------------------------------------
 /* Hardfault handling */
@@ -256,9 +259,7 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 int __io_putchar(int ch)
 {
-    usart2_tx_done = false;
-    usart_send(&usart2_obj, (uint8_t *)&ch, 1);
-    while (!usart2_tx_done) {};
+    usart_putc(&usart2_obj, ch);
     
     return 1;
 }
@@ -272,6 +273,12 @@ static bool usart_io_init(void)
     GPIO_CONFIG(HAL_UART_RX_PORT, HAL_UART_RX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
 
     return true;
+}
+
+static void usart2_rx_dma_tc(void)
+{
+    usart2_rx_done = true;
+    // hal_radio_tx_send(usart2_rx_payload);
 }
 
 static void usart2_tx_dma_tc(void)
@@ -288,7 +295,7 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
         {
             .inst = HAL_USART2_DMA_INSTANCE,
             .channel = HAL_USART2_DMA_RX_CHANNEL,
-            .tc = NULL,
+            .tc = usart2_rx_dma_tc,
             .peripheral_address = periph_address,
             .memory_address = (uintptr_t)data,
             .count = len,
@@ -298,7 +305,7 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
             .priority = DMA_PRIORITY_LOW,
             .memory_increment = true,
             .peripheral_increment = false,
-            .circular = false,
+            .circular = true,
             .memory_to_memory = false,
         };
 
@@ -812,7 +819,7 @@ void hal_radio_test(void)
     
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
-    uint32_t tx_addr = HAL_RADIO_TEST_TX_ADDRESS;
+    uint32_t tx_addr = HAL_RADIO_TX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_1_obj);
     nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, payload_len);   
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
@@ -847,17 +854,17 @@ void hal_radio_rx_config(void)
     request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
     spi3_dma_config_internal((uintptr_t)&HAL_SPI3_BASE->DR, received_data, request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
 
-    /* Prepare TIM3 input capture DMA requet generation on NRF 2 DR pin */
-    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
+    /* Prepare TIM5 input capture DMA requet generation on NRF 2 DR pin */
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM5EN;
     (void)RCC->APB1ENR1;
 
-    TIM3->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 channel is configured as input, IC1 is mapped on TI1
-    TIM3->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
-    TIM3->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
-    TIM3->CCER |= TIM_CCER_CC1P; // Bith edges
-    TIM3->CCER |= TIM_CCER_CC1NP; // Both edges
-    TIM3->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
-    TIM3->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
+    TIM5->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 channel is configured as input, IC1 is mapped on TI1
+    TIM5->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
+    TIM5->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
+    TIM5->CCER |= TIM_CCER_CC1P; // Bith edges
+    TIM5->CCER |= TIM_CCER_CC1NP; // Both edges
+    TIM5->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
+    TIM5->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
 
     /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
     static uint32_t spi3_cr1_data[2] = {0};
@@ -865,10 +872,10 @@ void hal_radio_rx_config(void)
     spi3_cr1_data[1] = HAL_SPI3_BASE->CR1 & ~SPI_CR1_SPE;
 
     dma_init(DMA_INSTANCE_1);
-    struct dma_channel_cfg tim3_spi_start_cfg =
+    struct dma_channel_cfg tim5_spi_start_cfg =
     {
-        .inst = DMA_INSTANCE_1,
-        .channel = DMA_CHANNEL_6,
+        .inst = DMA_INSTANCE_2,
+        .channel = DMA_CHANNEL_5,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&HAL_SPI3_BASE->CR1,
         .memory_address = (uintptr_t)&spi3_cr1_data,
@@ -883,8 +890,8 @@ void hal_radio_rx_config(void)
         .memory_to_memory = false,
     };
 
-    dma_channel_config(&tim3_spi_start_cfg);
-    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_5);
+    dma_channel_config(&tim5_spi_start_cfg);
+    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_5, DMA_REQUEST_5);
 }
 
 void hal_radio_rx_config2(void)
@@ -894,26 +901,49 @@ void hal_radio_rx_config2(void)
     HAL_SPI3_DMA_TX_BASE->CCR |= DMA_CCR_EN;
 }
 
-void hal_radio_loopback_test(void)
+void hal_radio_tx_send(void)
 {
+    unsigned char *payload = usart2_rx_payload;
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, payload, HAL_RADIO_TX_ADDRESS, &nrf905_1_obj);
+    nrf905_set_tx_data(&nrf905_1_obj, HAL_RADIO_TX_ADDRESS, payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
 
+    systick_delay(HAL_RADIO_TEST_DELAY_MS);
+
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
+
+    /* Hardware magic */
+
+    printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, received_data + 1, &nrf905_2_obj);
+
+    memset(received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
+}
+
+void hal_radio_loopback_test(void)
+{
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
-    uint32_t tx_addr = HAL_RADIO_TEST_TX_ADDRESS;
+    uint32_t tx_addr = HAL_RADIO_TX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_1_obj);
     nrf905_set_tx_data(&nrf905_1_obj, tx_addr, payload, payload_len);   
     nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
     
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
 
+    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
+
     /* Hardware magic */
 
     printf("Received data: %.*s, on %p\n", payload_len, received_data + 1, &nrf905_2_obj);
 
     memset(received_data + 1, 0x00, payload_len);
+}
 
-    nrf905_set_mode(&nrf905_1_obj, NRF905_MODE_STANDBY); 
+void hal_uart_wait_for_msg(void)
+{
+    usart2_rx_done = false;
+    usart_receive(&usart2_obj, usart2_rx_payload, sizeof(usart2_rx_payload));
+    while(!usart2_rx_done) {}
 }
 
 void hal_led_toggle(void)
@@ -932,7 +962,6 @@ void hal_delay(uint32_t ms)
 }
 
 //------------------------------------------------------------------------------
-
 
 void hal_radio_rx_config_new(void)
 {

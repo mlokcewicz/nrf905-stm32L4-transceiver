@@ -130,6 +130,13 @@ void usart_send_finish(struct usart_obj *obj);
 /// @return true if received successfully, false in case of parity / overrun / frame errors
 bool usart_receive(struct usart_obj *obj, uint8_t *data, uint32_t len);
 
+/// @brief Sends one byte using blocking polling
+/// @note Enables USART, waits for the transmit register to be empty and for transmission to complete; leaves USART enabled
+/// @note Requires an initialized transmitter and no active DMA transmission; no timeout
+/// @param obj Pointer to the USART instance object
+/// @param ch character to send
+void usart_putc(struct usart_obj *obj, char ch);
+
 /// @brief Sends given data if polling mode is chosen
 /// @note If TXC callback is provided, this function only enables TXC interrupt
 /// @param obj Pointer to the USART instance object @ref usart_obj

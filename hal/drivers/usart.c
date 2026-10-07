@@ -224,9 +224,41 @@ bool usart_receive(struct usart_obj *obj, uint8_t *data, uint32_t len)
     return true;
 }
 
+void usart_putc(struct usart_obj *obj, char ch)
+{
+    if (!obj)
+        return;
+
+    USART_TypeDef *base = usart_base[obj->inst];
+
+    base->CR1 |= USART_CR1_UE;
+
+    while (!(base->ISR & USART_ISR_TXE)) {};
+    base->TDR = ch;
+    while (!(base->ISR & USART_ISR_TC)) {};
+}
+
 void usart_print(struct usart_obj *obj, char *str)
 {
-    usart_send(obj, (uint8_t*)str, strlen(str));
+    uint32_t len = strlen(str);
+
+     if (!obj || !str || len == 0)
+        return;
+
+    USART_TypeDef *base = usart_base[obj->inst];
+
+    base->CR1 |= USART_CR1_UE;
+
+    uint32_t pos = 0;
+
+    while (len--)
+    {
+        while (!(base->ISR & USART_ISR_TXE)) {};
+
+        base->TDR = str[pos++];
+    }
+
+    while (!(base->ISR & USART_ISR_TC));
 }
 
 void usart_deinit(struct usart_obj *obj)
