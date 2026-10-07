@@ -31,3 +31,23 @@
 
 ### Build project
 `cmake --build --preset <hw_version>_<config>`
+
+## Radio configuration
+
+Radio settings are CMake cache variables defined in the root `CMakeLists.txt`.
+Override them when configuring the project with `-DNAME=value`:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CONFIG_RADIO_RX_ADDRESS` | `0xDDCCBBAAUL` | Receive address |
+| `CONFIG_RADIO_TX_ADDRESS` | `CONFIG_RADIO_RX_ADDRESS` | Transmit address; follows the receive address unless overridden |
+| `CONFIG_RADIO_CHANNEL` | `108` | Channel number (0?511) |
+| `CONFIG_RADIO_BAND` | `NRF905_PLL_FREQ_433_MHZ` | Band: `NRF905_PLL_FREQ_433_MHZ` or `NRF905_PLL_FREQ_868_915_MHZ` |
+| `CONFIG_RADIO_TX_POWER` | `NRF905_PA_PWR_10_DBM` | Power: `NRF905_PA_PWR_MINUS_10_DBM`, `NRF905_PA_PWR_MINUS_2_DBM`, `NRF905_PA_PWR_6_DBM` or `NRF905_PA_PWR_10_DBM` |
+
+```sh
+cmake --preset v0.0.1_debug -DHAL_RADIO_CHANNEL=110 -DHAL_RADIO_RX_ADDRESS=0xAABBCCDDUL -DHAL_RADIO_TX_POWER=NRF905_PA_PWR_6_DBM
+cmake --build --preset v0.0.1_debug
+```
+
+Values persist in the build directory's CMake cache. Reconfigure and rebuild after changing them.

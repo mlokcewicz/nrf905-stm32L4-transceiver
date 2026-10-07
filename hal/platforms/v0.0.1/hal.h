@@ -38,7 +38,7 @@ void hal_delay(uint32_t ms);
 /// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to USART2
 void hal_uart_wait_for_msg(void);
 
-/// @brief Enables nRF2 reception and configures SPI3 DMA for a hardware-triggered payload read
+/// @brief Enables nRF RX reception and configures SPI3 DMA for a hardware-triggered payload read
 /// @note Requires successful hal_init(); the hardware sequence is:
 /// DR rises -> TIM3 input capture requests DMA1 channel 6 -> DMA sets SPI3 CR1.SPE -> SPI drives CS low.
 /// SPI TXE requests TX DMA to write the read command and dummy bytes; received bytes trigger RX DMA via RXNE.
@@ -47,17 +47,17 @@ void hal_uart_wait_for_msg(void);
 void hal_radio_rx_config(void);
 void hal_radio_rx_config2(void);
 
-/// @brief Sends a 32-byte payload from nRF1 to the configured radio address
-/// @note Requires hal_init(), nRF1 in standby and configured nRF2 hardware reception with SPI TX DMA ready
+/// @brief Sends a 32-byte payload from nRF TX to the configured radio address
+/// @note Requires hal_init(), nRF TX in standby and configured nRF RX hardware reception with SPI TX DMA ready
 void hal_radio_tx_send(void);
 
 
-/// @brief Runs a blocking radio test transmitting RADIOMSG from nRF1 to nRF2
+/// @brief Runs a blocking radio test transmitting RADIOMSG from nRF TX to nRF RX
 /// @note Requires successful hal_init(); waits 1000 ms before reading and printing receiver status and data
 /// @note Does not check operation results, restore radio modes or refresh the watchdog
 void hal_radio_test(void);
 
-/// @brief Runs a blocking radio test transmitting RADIOMSG from nRF1 to nRF2 
+/// @brief Runs a blocking radio test transmitting RADIOMSG from nRF TX to nRF RX 
 /// @note Requires successful hal_init(); use pure HW-driven receptrion using DMA requests from DR pin over Timer
 /// @note Does not check operation results, restore radio modes or refresh the watchdog
 void hal_radio_loopback_test(void);

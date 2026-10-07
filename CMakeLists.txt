@@ -9,8 +9,24 @@ project("nrf905_stm32l4_transceiver" C CXX ASM)
 # global headers (FreeRTOSConfig.h)
 include_directories(app)
 
+# Configurable radio settings (override with -DNAME=value)
+set(CONFIG_RADIO_RX_ADDRESS "0xDDCCBBAAUL" CACHE STRING "Radio receive address")
+set(CONFIG_RADIO_TX_ADDRESS "CONFIG_RADIO_RX_ADDRESS" CACHE STRING "Radio transmit address; defaults to the receive address")
+set(CONFIG_RADIO_CHANNEL "108" CACHE STRING "nRF905 channel number")
+set(CONFIG_RADIO_BAND "NRF905_PLL_FREQ_433_MHZ" CACHE STRING "nRF905 frequency band enum")
+set(CONFIG_RADIO_TX_POWER "NRF905_PA_PWR_10_DBM" CACHE STRING "nRF905 transmit power enum")
+
 # Application modules
 add_subdirectory(app)
 add_subdirectory(middlewares)
 add_subdirectory(external)
 add_subdirectory(hal)
+
+# Pass radio settings to the hardware platform
+target_compile_definitions(platform PRIVATE
+    CONFIG_RADIO_RX_ADDRESS=${CONFIG_RADIO_RX_ADDRESS}
+    CONFIG_RADIO_TX_ADDRESS=${CONFIG_RADIO_TX_ADDRESS}
+    CONFIG_RADIO_CHANNEL=${CONFIG_RADIO_CHANNEL}
+    CONFIG_RADIO_BAND=${CONFIG_RADIO_BAND}
+    CONFIG_RADIO_TX_POWER=${CONFIG_RADIO_TX_POWER}
+)
