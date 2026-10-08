@@ -36,7 +36,7 @@ void hal_delay(uint32_t ms);
 
 /// @brief Blocks until USART2 DMA receives payload bytes
 /// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to USART2
-void hal_uart_wait_for_msg(void);
+void hal_uart_rx_start(void);
 
 /// @brief Enables nRF RX reception and configures SPI3 DMA for a hardware-triggered payload read
 /// @note Requires successful hal_init(); the hardware sequence is:

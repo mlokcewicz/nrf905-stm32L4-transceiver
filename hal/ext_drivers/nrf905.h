@@ -143,14 +143,20 @@ bool nrf905_get_status(struct nrf905_obj *obj, enum nrf905_status *status);
 /// @return false for NULL obj or mode above the highest enum value, otherwise true
 bool nrf905_set_mode(struct nrf905_obj *obj, enum nrf905_mode mode);
 
-/// @brief Writes the TX address register and a zero-padded 32-byte TX payload buffer
+/// @brief Writes the TX address register
 /// @note Does not start radio transmission; call with the radio in standby or power-down mode
 /// @param obj Initialized radio object
 /// @param addr Destination address, intended to be stored least-significant byte first
+/// @return true if both SPI writes succeed, false for invalid arguments or SPI failure
+bool nrf905_set_tx_addr(struct nrf905_obj *obj, uint32_t addr);
+
+/// @brief Writes a zero-padded 32-byte TX payload buffer
+/// @note Does not start radio transmission; call with the radio in standby or power-down mode
+/// @param obj Initialized radio object
 /// @param payload Buffer containing len payload bytes
 /// @param len Number of bytes to copy, from 1 to 32; remaining buffer bytes are zeroed
 /// @return true if both SPI writes succeed, false for invalid arguments or SPI failure
-bool nrf905_set_tx_data(struct nrf905_obj *obj, uint32_t addr, const uint8_t *payload, uint8_t len);
+bool nrf905_set_tx_data(struct nrf905_obj *obj, const uint8_t *payload, uint8_t len);
 
 /// @brief Reads size bytes from the beginning of the RX payload register
 /// @param obj Initialized radio object

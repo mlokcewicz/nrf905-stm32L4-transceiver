@@ -154,6 +154,16 @@
 #define HAL_RADIO_TEST_PAYLOAD              "nRF905 RADIO TRX TEST MSG!"
 
 //------------------------------------------------------------------------------
+/* Type definitions */
+
+enum hal_tx_state
+{
+    HAL_TX_IDLE,
+    HAL_TX_ADDR_SENDING,
+    HAL_TX_DATA_SENDING,
+};
+
+//------------------------------------------------------------------------------
 /* Static objects */
 
 static struct usart_obj usart2_obj = {0};
@@ -166,6 +176,8 @@ static struct nrf905_obj nrf905_tx_obj;
 static volatile bool spi2_dma_rx_done;
 static volatile bool spi2_dma_tx_done;
 static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
+
+static volatile enum hal_tx_state nrf905_tx_state;
 #endif
 
 #if CONFIG_RECEIVER_EN
@@ -273,6 +285,13 @@ static bool usart_io_init(void)
 static void usart2_rx_dma_tc(void)
 {
     usart2_rx_done = true;
+
+#if CONFIG_TRANSMITTER_EN
+    nrf905_tx_state = HAL_TX_ADDR_SENDING;
+    unsigned char *payload = usart2_rx_payload;
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
+    nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
+#endif
 }
 
 static void usart2_tx_dma_tc(void)
@@ -334,6 +353,29 @@ static void spi2_dma_rx_tc(void)
 {
     spi_transmit_finish(&spi2_obj);
     spi2_dma_rx_done = true;
+
+#if CONFIG_TRANSMITTER_EN
+    if (nrf905_tx_state == HAL_TX_ADDR_SENDING)
+    {
+        nrf905_tx_state = HAL_TX_DATA_SENDING;
+        nrf905_set_tx_data(&nrf905_tx_obj, usart2_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
+    }
+    else if (nrf905_tx_state == HAL_TX_DATA_SENDING)
+    {
+        nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+        volatile uint32_t delay = 0;
+        for (delay = 0; delay < 100000; delay++) {} // Wait for the transmission to finish
+        nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY);
+
+        printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
+
+        memset(nrf_get_payload_received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
+        
+        nrf905_tx_state = HAL_TX_IDLE;
+
+        hal_radio_rx_config_reload(); // remove
+    }
+#endif
 }
 
 static void spi2_dma_tx_tc(void)
@@ -341,7 +383,6 @@ static void spi2_dma_tx_tc(void)
     spi2_dma_tx_done = true;
 }
 #endif
-
 
 #if CONFIG_RECEIVER_EN
 static void spi3_dma_rx_tc(void)
@@ -355,7 +396,6 @@ static void spi3_dma_tx_tc(void)
     spi3_dma_tx_done = true;
 }
 #endif
-
 
 #if CONFIG_TRANSMITTER_EN
 static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
@@ -403,7 +443,6 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     dma_channel_config(&tx_cfg);
 }
 #endif
-
 
 #if CONFIG_RECEIVER_EN
 static void spi3_dma_config_internal(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len, bool circular_rx, bool circular_tx, void (*rx_tc)(void), void (*tx_tc)(void))
@@ -457,7 +496,6 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
 }
 #endif
 
-
 #if CONFIG_TRANSMITTER_EN
 static void spi2_cs_write(bool state)
 {
@@ -493,7 +531,6 @@ static bool spi3_io_init(void)
 }
 #endif
 
-
 //------------------------------------------------------------------------------
 /* External drivers initialization */
 
@@ -514,6 +551,9 @@ static bool nrf905_tx_spi_transmit_cb(uint8_t *data_tx, uint8_t *data_rx, uint32
     spi2_dma_tx_done = false;
 
     spi_transmit(&spi2_obj, data_rx, data_tx, len);
+
+    if (nrf905_tx_state != HAL_TX_IDLE)
+        return true; 
 
     while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
 
@@ -859,9 +899,9 @@ void hal_radio_rx_config_reload(void)
 void hal_radio_tx_send(void)
 {
 #if CONFIG_TRANSMITTER_EN
-    unsigned char *payload = usart2_rx_payload;
-    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
-    nrf905_set_tx_data(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS, payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, usart2_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
+    nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
+    nrf905_set_tx_data(&nrf905_tx_obj, usart2_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
 
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
@@ -888,7 +928,8 @@ void hal_radio_loopback_test(void)
     uint8_t payload_len = strlen((char*)payload);
     uint32_t tx_addr = CONFIG_RADIO_TX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_tx_obj);
-    nrf905_set_tx_data(&nrf905_tx_obj, tx_addr, payload, payload_len);   
+    nrf905_set_tx_addr(&nrf905_tx_obj, tx_addr);
+    nrf905_set_tx_data(&nrf905_tx_obj, payload, payload_len);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
     
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
@@ -910,13 +951,17 @@ void hal_radio_loopback_test(void)
 void hal_radio_loopback_test_hw_driven(void)
 {
 #if CONFIG_TRANSMITTER_EN && CONFIG_RECEIVER_EN
+
+    hal_radio_rx_config();
+
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);
     uint32_t tx_addr = CONFIG_RADIO_RX_ADDRESS;
     printf("Sending %s to %02lX from %p...\n", payload, tx_addr, &nrf905_tx_obj);
-    nrf905_set_tx_data(&nrf905_tx_obj, tx_addr, payload, payload_len);   
-    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
-    
+    nrf905_set_tx_addr(&nrf905_tx_obj, tx_addr);
+    nrf905_set_tx_data(&nrf905_tx_obj, payload, payload_len);
+    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN);
+
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
@@ -929,12 +974,11 @@ void hal_radio_loopback_test_hw_driven(void)
 #endif
 }
 
-void hal_uart_wait_for_msg(void)
+void hal_uart_rx_start(void)
 {
 #if CONFIG_TRANSMITTER_EN
     usart2_rx_done = false;
     usart_receive(&usart2_obj, usart2_rx_payload, sizeof(usart2_rx_payload));
-    while(!usart2_rx_done) {}
 #endif
 }
 

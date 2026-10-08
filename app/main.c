@@ -16,9 +16,10 @@ int main()
 {
     hal_init();
 
-    hal_radio_rx_config();
-
     hal_radio_loopback_test_hw_driven();
+    
+    hal_radio_rx_config();
+    hal_uart_rx_start();
 
     printf("Transceiver started, waiting for messages...\n");
     
@@ -27,11 +28,7 @@ int main()
         hal_led_toggle();
         hal_wdg_feed();
         
-        hal_radio_rx_config_reload();
-        hal_uart_wait_for_msg();
-        hal_radio_tx_send();
-        
-        hal_delay(1000);
+        hal_delay(500);
     }
 
     return 0;

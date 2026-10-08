@@ -106,9 +106,9 @@ bool nrf905_set_mode(struct nrf905_obj *obj, enum nrf905_mode mode)
     return true;
 }
 
-bool nrf905_set_tx_data(struct nrf905_obj *obj, uint32_t addr, const uint8_t *payload, uint8_t len)
+bool nrf905_set_tx_addr(struct nrf905_obj *obj, uint32_t addr)
 {
-    if (!obj || !payload || len == 0 || len > NRF905_MAX_PAYLOAD_SIZE)
+    if (!obj)
         return false;
 
     uint8_t tx_addr[5] = {0};
@@ -119,6 +119,14 @@ bool nrf905_set_tx_data(struct nrf905_obj *obj, uint32_t addr, const uint8_t *pa
     tx_addr[4] = (addr & 0xFF000000) >> 24;
 
     if (!obj->spi_transmit_cb(tx_addr, NULL, sizeof(tx_addr)))
+        return false;
+
+    return true;
+}  
+
+bool nrf905_set_tx_data(struct nrf905_obj *obj, const uint8_t *payload, uint8_t len)
+{
+    if (!obj || !payload || len == 0 || len > NRF905_MAX_PAYLOAD_SIZE)
         return false;
 
     uint8_t tx_payload[33] = {0};
