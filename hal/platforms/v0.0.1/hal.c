@@ -288,8 +288,7 @@ static void usart2_rx_dma_tc(void)
 
 #if CONFIG_TRANSMITTER_EN
     nrf905_tx_state = HAL_TX_ADDR_SENDING;
-    unsigned char *payload = usart2_rx_payload;
-    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, usart2_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
     nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
 #endif
 }
@@ -363,9 +362,11 @@ static void spi2_dma_rx_tc(void)
     else if (nrf905_tx_state == HAL_TX_DATA_SENDING)
     {
         nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
+        
+        // TODO: Remove this section and implement hw-driven RX
         volatile uint32_t delay = 0;
         for (delay = 0; delay < 100000; delay++) {} // Wait for the transmission to finish
-        nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY);
+        nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
         printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
 
@@ -833,7 +834,7 @@ bool hal_init(void)
     return true;
 }
 
-void hal_radio_rx_config(void)
+void hal_radio_rx_config(void) // TODO: Remove direct register access
 {
 #if CONFIG_RECEIVER_EN
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
@@ -887,7 +888,7 @@ void hal_radio_rx_config(void)
 #endif
 }
 
-void hal_radio_rx_config_reload(void)
+void hal_radio_rx_config_reload(void) // TODO: Remove
 {
 #if CONFIG_RECEIVER_EN
     DMA2_Channel2->CCR &= ~DMA_CCR_EN;
@@ -904,7 +905,7 @@ void hal_radio_tx_send(void)
     nrf905_set_tx_data(&nrf905_tx_obj, usart2_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
 
-    systick_delay(HAL_RADIO_TEST_DELAY_MS);
+    systick_delay(HAL_RADIO_TEST_DELAY_MS); // TODO: Use DR
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
