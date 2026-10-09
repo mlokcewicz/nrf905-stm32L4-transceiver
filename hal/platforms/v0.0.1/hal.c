@@ -35,13 +35,13 @@
 #define HAL_UART_RX_PIN                     3
 
 #define HAL_NRF_TX_SCK_PORT                 B
-#define HAL_NRF_TX_SCK_PIN                  13
-#define HAL_NRF_TX_MISO_PORT                B
-#define HAL_NRF_TX_MISO_PIN                 14
-#define HAL_NRF_TX_MOSI_PORT                B
-#define HAL_NRF_TX_MOSI_PIN                 15
-#define HAL_NRF_TX_CS_PORT                  B
-#define HAL_NRF_TX_CS_PIN                   12
+#define HAL_NRF_TX_SCK_PIN                  3
+#define HAL_NRF_TX_MISO_PORT                A
+#define HAL_NRF_TX_MISO_PIN                 6
+#define HAL_NRF_TX_MOSI_PORT                A
+#define HAL_NRF_TX_MOSI_PIN                 7
+#define HAL_NRF_TX_CS_PORT                  A
+#define HAL_NRF_TX_CS_PIN                   4
 #define HAL_NRF_RX_SCK_PORT                 C
 #define HAL_NRF_RX_SCK_PIN                  10
 #define HAL_NRF_RX_MISO_PORT                C
@@ -105,7 +105,7 @@
 #define HAL_UART_BAUDRATE                   115200
 
 /* Radio SPI configuration */
-#define HAL_NRF_TX_SPI_INSTANCE             SPI_INSTANCE_2
+#define HAL_NRF_TX_SPI_INSTANCE             SPI_INSTANCE_1
 #define HAL_NRF_RX_SPI_INSTANCE             SPI_INSTANCE_3
 #define HAL_NRF_SPI_PRESCALER               SPI_CLOCK_PRESC_16
 #define HAL_NRF_SPI_DATA_SIZE               SPI_DATASIZE_8_BIT
@@ -118,8 +118,8 @@
 
 /* SPI DMA mapping */
 #define HAL_NRF_TX_SPI_DMA_INSTANCE         DMA_INSTANCE_1
-#define HAL_NRF_TX_SPI_DMA_RX_CHANNEL       DMA_CHANNEL_4
-#define HAL_NRF_TX_SPI_DMA_TX_CHANNEL       DMA_CHANNEL_5
+#define HAL_NRF_TX_SPI_DMA_RX_CHANNEL       DMA_CHANNEL_2
+#define HAL_NRF_TX_SPI_DMA_TX_CHANNEL       DMA_CHANNEL_3
 #define HAL_NRF_TX_SPI_DMA_REQUEST          DMA_REQUEST_1
 #define HAL_NRF_RX_SPI_DMA_INSTANCE         DMA_INSTANCE_2
 #define HAL_NRF_RX_SPI_DMA_RX_CHANNEL       DMA_CHANNEL_1
@@ -171,10 +171,10 @@ static volatile bool usart2_tx_done;
 static volatile bool usart2_rx_done;
 
 #if CONFIG_TRANSMITTER_EN
-static struct spi_obj spi2_obj = {0};
+static struct spi_obj spi1_obj = {0};
 static struct nrf905_obj nrf905_tx_obj;
-static volatile bool spi2_dma_rx_done;
-static volatile bool spi2_dma_tx_done;
+static volatile bool spi1_dma_rx_done;
+static volatile bool spi1_dma_tx_done;
 static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
 
 static volatile enum hal_tx_state nrf905_tx_state;
@@ -348,10 +348,10 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
 }
 
 #if CONFIG_TRANSMITTER_EN
-static void spi2_dma_rx_tc(void)
+static void spi1_dma_rx_tc(void)
 {
-    spi_transmit_finish(&spi2_obj);
-    spi2_dma_rx_done = true;
+    spi_transmit_finish(&spi1_obj);
+    spi1_dma_rx_done = true;
 
 #if CONFIG_TRANSMITTER_EN
     if (nrf905_tx_state == HAL_TX_ADDR_SENDING)
@@ -379,9 +379,9 @@ static void spi2_dma_rx_tc(void)
 #endif
 }
 
-static void spi2_dma_tx_tc(void)
+static void spi1_dma_tx_tc(void)
 {
-    spi2_dma_tx_done = true;
+    spi1_dma_tx_done = true;
 }
 #endif
 
@@ -399,7 +399,7 @@ static void spi3_dma_tx_tc(void)
 #endif
 
 #if CONFIG_TRANSMITTER_EN
-static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
+static void spi1_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
 {
     static uint8_t dummy_rx;
     static uint8_t dummy_tx = HAL_NRF_SPI_DUMMY_BYTE;
@@ -408,7 +408,7 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_NRF_TX_SPI_DMA_INSTANCE,
         .channel = HAL_NRF_TX_SPI_DMA_RX_CHANNEL,
-        .tc = spi2_dma_rx_tc,
+        .tc = spi1_dma_rx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_rx ? (uintptr_t)data_rx : (uintptr_t)&dummy_rx,
         .count = len,
@@ -426,7 +426,7 @@ static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     {
         .inst = HAL_NRF_TX_SPI_DMA_INSTANCE,
         .channel = HAL_NRF_TX_SPI_DMA_TX_CHANNEL,
-        .tc = spi2_dma_tx_tc,
+        .tc = spi1_dma_tx_tc,
         .peripheral_address = periph_address,
         .memory_address = data_tx ? (uintptr_t)data_tx : (uintptr_t)&dummy_tx,
         .count = len,
@@ -498,16 +498,16 @@ static void spi3_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
 #endif
 
 #if CONFIG_TRANSMITTER_EN
-static void spi2_cs_write(bool state)
+static void spi1_cs_write(bool state)
 {
     GPIO_SET(HAL_NRF_TX_CS_PORT, HAL_NRF_TX_CS_PIN, state);
 }
 
-static bool spi2_io_init(void)
+static bool spi1_io_init(void)
 {
-    GPIO_CONFIG(HAL_NRF_TX_SCK_PORT, HAL_NRF_TX_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI2 SCK */
-    GPIO_CONFIG(HAL_NRF_TX_MISO_PORT, HAL_NRF_TX_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI2 MISO */
-    GPIO_CONFIG(HAL_NRF_TX_MOSI_PORT, HAL_NRF_TX_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI2 MOSI */
+    GPIO_CONFIG(HAL_NRF_TX_SCK_PORT, HAL_NRF_TX_SCK_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI1 SCK */
+    GPIO_CONFIG(HAL_NRF_TX_MISO_PORT, HAL_NRF_TX_MISO_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI1 MISO */
+    GPIO_CONFIG(HAL_NRF_TX_MOSI_PORT, HAL_NRF_TX_MOSI_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_HI, GPIO_PUPD_NONE, HAL_NRF_TX_SPI_AF); /* SPI1 MOSI */
     GPIO_CONFIG(HAL_NRF_TX_CS_PORT, HAL_NRF_TX_CS_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_PU, HAL_NRF_TX_SPI_AF);
 
     return true;
@@ -548,15 +548,15 @@ static bool nrf905_tx_io_init_cb(void)
 
 static bool nrf905_tx_spi_transmit_cb(uint8_t *data_tx, uint8_t *data_rx, uint32_t len)
 {
-    spi2_dma_rx_done = false;
-    spi2_dma_tx_done = false;
+    spi1_dma_rx_done = false;
+    spi1_dma_tx_done = false;
 
-    spi_transmit(&spi2_obj, data_rx, data_tx, len);
+    spi_transmit(&spi1_obj, data_rx, data_tx, len);
 
     if (nrf905_tx_state != HAL_TX_IDLE)
         return true; 
 
-    while (!spi2_dma_rx_done || !spi2_dma_tx_done) {}
+    while (!spi1_dma_rx_done || !spi1_dma_tx_done) {}
 
     return true;
 }
@@ -565,7 +565,7 @@ static bool nrf905_tx_pin_set_cb(enum nrf905_pin pin, bool state)
 {
     switch (pin)
     {
-        case NRF905_PIN_CS: spi_cs_set(&spi2_obj, state); break;
+        case NRF905_PIN_CS: spi_cs_set(&spi1_obj, state); break;
         case NRF905_PIN_PWR: GPIO_SET(HAL_NRF_TX_PWR_PORT, HAL_NRF_TX_PWR_PIN, state); break;
         case NRF905_PIN_CE: GPIO_SET(HAL_NRF_TX_CE_PORT, HAL_NRF_TX_CE_PIN, state); break;
         case NRF905_PIN_TXE: GPIO_SET(HAL_NRF_TX_TXE_PORT, HAL_NRF_TX_TXE_PIN, state); break;
@@ -733,7 +733,7 @@ bool hal_init(void)
 
 #if CONFIG_TRANSMITTER_EN
     /* NRF TX */    
-    struct spi_cfg spi_cfg2 =
+    struct spi_cfg spi_cfg1 =
     {
         .inst = HAL_NRF_TX_SPI_INSTANCE,
         .clock_presc = HAL_NRF_SPI_PRESCALER,
@@ -742,12 +742,12 @@ bool hal_init(void)
         .cpha = HAL_NRF_SPI_CPHA,
         .lsb_first = HAL_NRF_SPI_LSB_FIRST,
         .hw_cs = HAL_NRF_SPI_HW_CS,
-        .io_init = spi2_io_init,
-        .dma_config = spi2_dma_config,
-        .cs_set = spi2_cs_write,
+        .io_init = spi1_io_init,
+        .dma_config = spi1_dma_config,
+        .cs_set = spi1_cs_write,
     };
 
-    if (!spi_init(&spi2_obj, &spi_cfg2))
+    if (!spi_init(&spi1_obj, &spi_cfg1))
         return false;
 
     struct nrf905_cfg nrf905_tx_cfg = 
