@@ -851,13 +851,24 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     RCC->APB1ENR1 |= RCC_APB1ENR1_TIM5EN;
     (void)RCC->APB1ENR1;
 
-    TIM5->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 channel is configured as input, IC1 is mapped on TI1
+    /* Trigger for TIM 8 on rising edge */
+
+    TIM5->CCMR1 |= TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_1; // CC1 channel is configured as input, IC1 is mapped on TI1, CC2 channel is configured as input, IC2 is mapped on TI1
     TIM5->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
     TIM5->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
-    TIM5->CCER |= TIM_CCER_CC1P; // Bith edges
-    TIM5->CCER |= TIM_CCER_CC1NP; // Both edges
+    TIM5->CCER &= ~TIM_CCER_CC1P; // Raising edges
+    TIM5->CCER &= ~TIM_CCER_CC1NP; // Rising edges
     TIM5->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
-    TIM5->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
+    // TIM5->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
+
+    TIM5->CR2 &= ~TIM_CR2_MMS;
+    TIM5->CR2 |= TIM_CR2_MMS_0 | TIM_CR2_MMS_1; // MMS = 011 = Compare Pulse
+
+    /* Generate DMA requests TIM5_CH2 for enabling DMA to enable SPI */
+    TIM5->CCER |= TIM_CCER_CC2P; // Both edges
+    TIM5->CCER |= TIM_CCER_CC2NP; // Both edges
+    TIM5->CCER |= TIM_CCER_CC2E; // CC2 input capture enabled
+    TIM5->DIER |= TIM_DIER_CC2DE; // CC2 DMA request enable
 
     /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
     static uint32_t spi2_cr1_data[2] = {0};
@@ -868,7 +879,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     struct dma_channel_cfg tim5_spi_start_cfg =
     {
         .inst = DMA_INSTANCE_2,
-        .channel = DMA_CHANNEL_5,
+        .channel = DMA_CHANNEL_4,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&HAL_NRF_RX_SPI_BASE->CR1,
         .memory_address = (uintptr_t)&spi2_cr1_data,
@@ -884,7 +895,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim5_spi_start_cfg);
-    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_5, DMA_REQUEST_5);
+    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_4, DMA_REQUEST_5);
 
 //     /* Configure TIM15 to generate 8 DMA requests */
 
