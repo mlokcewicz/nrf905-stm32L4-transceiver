@@ -80,6 +80,18 @@ enum nrf905_xof
     NRF905_XOF_20_MHZ = 0b100,
 };
 
+enum nrf905_instruction
+{
+    NRF905_INST_W_CONFIG = 0b00000000,
+    NRF905_INST_R_CONFIG = 0b00010000,
+    NRF905_INST_W_TX_PAYLOAD = 0b00100000,
+    NRF905_INST_R_TX_PAYLOAD = 0b00100001,
+    NRF905_INST_W_TX_ADDR = 0b00100010,
+    NRF905_INST_R_TX_ADDR = 0b00100011,
+    NRF905_INST_R_RX_PAYLOAD = 0b00100100,
+    NRF905_INST_CHANNEL_CONFIG = 0b10000000000000000,
+};
+
 //------------------------------------------------------------------------------
 
 typedef bool (*nrf905_io_init_cb)(void);

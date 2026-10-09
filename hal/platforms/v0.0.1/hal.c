@@ -846,7 +846,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_RXDMAEN;
     HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_TXDMAEN;
     
-    nrf_get_payload_request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
+    nrf_get_payload_request_data[0] = NRF905_INST_R_RX_PAYLOAD;
     spi2_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, nrf_get_payload_received_data, nrf_get_payload_request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
     
     /* Disable DMA channel to prevent unwanted transfers on first DR signal*/
@@ -882,7 +882,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     TIM8->EGR = TIM_EGR_UG; // Load RCR, ARR and CCRx registers with their preload values before DMA requests are enabked
     TIM8->SR = 0;
 
-    TIM8->DIER |= TIM_DIER_CC4DE; // 
+    TIM8->DIER |= TIM_DIER_CC4DE; // Enable DMA request on CC4 event (when CNT reaches CCR4 value)
 
     // repetition #1:
     // CNT 0 ... 50 ... 99

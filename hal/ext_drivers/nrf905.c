@@ -16,20 +16,6 @@
 
 //------------------------------------------------------------------------------
 
-enum nrf905_instruction
-{
-    NRF905_INST_W_CONFIG = 0b00000000,
-    NRF905_INST_R_CONFIG = 0b00010000,
-    NRF905_INST_W_TX_PAYLOAD = 0b00100000,
-    NRF905_INST_R_TX_PAYLOAD = 0b00100001,
-    NRF905_INST_W_TX_ADDR = 0b00100010,
-    NRF905_INST_R_TX_ADDR = 0b00100011,
-    NRF905_INST_R_RX_PAYLOAD = 0b00100100,
-    NRF905_INST_CHANNEL_CONFIG = 0b10000000000000000,
-};
-
-//------------------------------------------------------------------------------
-
 bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg)
 {
     if (!obj || !cfg || !cfg->io_init_cb || !cfg->spi_transmit_cb ||
