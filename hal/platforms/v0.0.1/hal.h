@@ -40,9 +40,9 @@ void hal_uart_rx_start(void);
 
 /// @brief Enables nRF RX reception and configures SPI2 DMA for a hardware-triggered payload read
 /// @note Requires successful hal_init(); the hardware sequence is:
-/// DR rises -> TIM3 input capture requests DMA1 channel 6 -> DMA sets SPI2 CR1.SPE -> SPI drives CS low.
+/// DR rises -> TIM8 CH2 captures TI1 indirectly and requests DMA2 channel 7 -> DMA sets SPI2 CR1.SPE -> SPI drives CS low.
 /// SPI TXE requests TX DMA to write the read command and dummy bytes; received bytes trigger RX DMA via RXNE.
-/// After the payload is read, DR falls -> TIM3 requests DMA1 channel 6 -> DMA clears SPI2 CR1.SPE.
+/// After the payload is read, DR falls -> TIM8 CH2 requests DMA2 channel 7 -> DMA clears SPI2 CR1.SPE.
 /// SPI releases NSS and the pull-up raises CS high, ending the transaction.
 void hal_radio_rx_config(void);
 
