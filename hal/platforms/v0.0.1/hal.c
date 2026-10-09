@@ -374,7 +374,7 @@ static void spi1_dma_rx_tc(void)
         
         nrf905_tx_state = HAL_TX_IDLE;
 
-        hal_radio_rx_config_reload(); // remove
+        // hal_radio_rx_config_reload(); // remove
     }
 #endif
 }
@@ -841,34 +841,65 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
 
     /* Prepare SPI2 for RX when DR is high */
     HAL_NRF_RX_SPI_BASE->CR1 &= ~SPI_CR1_SPE;
-    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_RXDMAEN;
-    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_TXDMAEN;
-
+    HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_RXDMAEN;
+    HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_TXDMAEN;
+    
     nrf_get_payload_request_data[0] = 36; // NRF905_INST_R_RX_PAYLOAD;
     spi2_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, nrf_get_payload_received_data, nrf_get_payload_request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
+    
+    /* Disable DMA channel to prevent unwanted transfers on first DR signal*/
+    DMA1_Channel5->CCR &= ~DMA_CCR_EN;
+
+    /* Enable SPI DMA request gneration */
+    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_RXDMAEN;
+    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_TXDMAEN;
 
     /* Prepare TIM8 input capture DMA requet generation on NRF RX DR pin */
     RCC->APB2ENR |= RCC_APB2ENR_TIM8EN;
     (void)RCC->APB2ENR;
 
-    /* Generate TRGO on the rising edge captured by CH1 */
+    /* Disable DMA requests generation */
+    TIM8->DIER = 0; 
 
+    /* Generate CC1 event on the rising edge captured by CH1 */
     TIM8->CCMR1 |= TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_1; // CC1 channel is configured as input, IC1 is mapped on TI1, CC2 channel is configured as input, IC2 is mapped on TI1
     TIM8->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
     TIM8->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
-    TIM8->CCER &= ~TIM_CCER_CC1P; // Raising edges
+    TIM8->CCER &= ~TIM_CCER_CC1P;  // Raising edges
     TIM8->CCER &= ~TIM_CCER_CC1NP; // Rising edges
     TIM8->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
-    // TIM8->DIER |= TIM_DIER_CC1DE; // CC1 DMA request enable
 
-    TIM8->CR2 &= ~TIM_CR2_MMS;
-    TIM8->CR2 |= TIM_CR2_MMS_0 | TIM_CR2_MMS_1; // MMS = 011 = Compare Pulse
+    /* Trigger 2 clock cycles to generate DMA reqests for enabling SPI RX DMA */
+    TIM8->SMCR |= TIM_SMCR_TS_2 | TIM_SMCR_TS_0; // Trigger selection: TI1FP1 TS: 101
+    TIM8->SMCR |= TIM_SMCR_SMS_2 | TIM_SMCR_SMS_1; // Slave mode selection: Trigger Mode SMS: 0110
+    TIM8->ARR = 100 - 1; // Auto-reload value: 100 clock cycles
+    TIM8->CCR4 = 50; // Compare value: 50 clock cycles
+    TIM8->RCR = 1; // Repetition coun ter: 2 repetition
+    TIM8->CR1 |= TIM_CR1_OPM; // One-pulse mode enabled (only 2 DMA requests will be generated)
 
-    /* Generate DMA requests TIM8_CH2 for enabling DMA to enable SPI */
+    TIM8->EGR = TIM_EGR_UG; // Load RCR, ARR and CCRx registers with their preload values before DMA requests are enabked
+    TIM8->SR = 0;
+
+    TIM8->DIER |= TIM_DIER_CC4DE; // 
+
+    // repetition #1:
+    // CNT 0 ... 50 ... 99
+    //           ^
+    //           DMA request #1
+
+    // repetition #2:
+    // CNT 0 ... 50 ... 99
+    //           ^
+    //           DMA request #2
+
+    /* Generate CC2 events for DMA requests for enabling DMA to enable SPI */
     TIM8->CCER |= TIM_CCER_CC2P; // Both edges
     TIM8->CCER |= TIM_CCER_CC2NP; // Both edges
     TIM8->CCER |= TIM_CCER_CC2E; // CC2 input capture enabled
     TIM8->DIER |= TIM_DIER_CC2DE; // CC2 DMA request enable
+
+    /* Generate UP events for DMA requests for enabling DMA to disable SPI TX DMA */
+    TIM8->DIER |= TIM_DIER_UDE; 
 
     /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
     static uint32_t spi2_cr1_data[2] = {0};
@@ -897,49 +928,56 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     dma_channel_config(&tim8_spi_start_cfg);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_7, DMA_REQUEST_7);
 
-//     /* Configure TIM15 to generate 8 DMA requests */
+    /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
+    static uint32_t nrf_rx_dma_spi_rx_rearm_cfg[2] = {0};
+    nrf_rx_dma_spi_rx_rearm_cfg[0] =  DMA1_Channel5->CCR & ~DMA_CCR_EN; /* Disable DMA channel in CCR */
+    nrf_rx_dma_spi_rx_rearm_cfg[1] =  HAL_RADIO_TX_PAYLOAD_SIZE + 1;    /* Set the number of data items to transfer in CNDTR */
 
+    struct dma_channel_cfg tim8_nrf_rx_dma_spi_rx_rearm_cfg =
+    {
+        .inst = DMA_INSTANCE_2,
+        .channel = DMA_CHANNEL_2,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)DMA1_Channel5,
+        .memory_address = (uintptr_t)&nrf_rx_dma_spi_rx_rearm_cfg,
+        .count = sizeof(nrf_rx_dma_spi_rx_rearm_cfg) / sizeof(uint32_t),
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = true,
+        .peripheral_increment = true,
+        .circular = true,
+        .memory_to_memory = false,
+    };
 
-// // typedef struct
-// // {
-// //   __IO uint32_t CCR;         /*!< DMA channel x configuration register        */
-// //   __IO uint32_t CNDTR;       /*!< DMA channel x number of data register       */
-// //   __IO uint32_t CPAR;        /*!< DMA channel x peripheral address register   */
-// //   __IO uint32_t CMAR;        /*!< DMA channel x memory address register       */
-// // } DMA_Channel_TypeDef;
+    dma_channel_config(&tim8_nrf_rx_dma_spi_rx_rearm_cfg);
+    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_2, DMA_REQUEST_7);
 
-//     static DMA_Channel_TypeDef nrf_rx_spi_dma_tx_config[2] =  {0};
-//     nrf_rx_spi_dma_tx_config[0].CCR = HAL_NRF_RX_SPI_BASE->CR1 | SPI_CR1_SPE;
-//     nrf_rx_spi_dma_tx_config[0].CNDTR = DMA1_Channel5->CNDTR;
-//     nrf_rx_spi_dma_tx_config[0].CPAR = DMA1_Channel5->CPAR;
-//     nrf_rx_spi_dma_tx_config[0].CMAR = DMA1_Channel5->CMAR;
-//     nrf_rx_spi_dma_tx_config[1].CCR = HAL_NRF_RX_SPI_BASE->CR1 & ~SPI_CR1_SPE;
-//     nrf_rx_spi_dma_tx_config[1].CNDTR = HAL_RADIO_TX_PAYLOAD_SIZE + 1;
-//     nrf_rx_spi_dma_tx_config[1].CPAR = DMA1_Channel5->CPAR;
-//     nrf_rx_spi_dma_tx_config[1].CMAR = DMA1_Channel5->CMAR;
+        /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
+    static uint32_t nrf_rx_dma_spi_rx_enable_cfg = 0;
+    nrf_rx_dma_spi_rx_enable_cfg =  DMA1_Channel5->CCR | DMA_CCR_EN; /* Enable DMA channel in CCR */
 
-//     /* Configure DMA channel and request for enabling NRF_RX_SPI_DMA_TX config using DMA triggered by TIM15 */
-//     struct dma_channel_cfg tim15_dma_rx_cfg =
-//     {
-//         .inst = DMA_INSTANCE_1,
-//         .channel = DMA_CHANNEL_5,
-//         .tc = NULL,
-//         .peripheral_address = (uintptr_t)DMA1_Channel5,
-//         .memory_address = (uintptr_t)&spi2_cr1_data,
-//         .count = sizeof(spi2_cr1_data) / sizeof(uint32_t),
-//         .peripheral_size = DMA_DATA_SIZE_32_BIT,
-//         .memory_size = DMA_DATA_SIZE_32_BIT,
-//         .direction = DMA_MEMORY_TO_PERIPHERAL,
-//         .priority = DMA_PRIORITY_LOW,
-//         .memory_increment = true,
-//         .peripheral_increment = false,
-//         .circular = true,
-//         .memory_to_memory = false,
-//     };
+    struct dma_channel_cfg tim8_nrf_rx_dma_spi_rx_enable_cfg =
+    {
+        .inst = DMA_INSTANCE_2,
+        .channel = DMA_CHANNEL_1,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)DMA1_Channel5,
+        .memory_address = (uintptr_t)&nrf_rx_dma_spi_rx_enable_cfg,
+        .count = sizeof(nrf_rx_dma_spi_rx_enable_cfg) / sizeof(uint32_t),
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = true,
+        .peripheral_increment = true,
+        .circular = true,
+        .memory_to_memory = false,
+    };
 
-//     dma_channel_config(&tim15_dma_rx_cfg);
-//     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_5, DMA_REQUEST_5);
-
+    dma_channel_config(&tim8_nrf_rx_dma_spi_rx_enable_cfg);
+    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_1, DMA_REQUEST_7);
 #endif
 }
 
@@ -1007,8 +1045,6 @@ void hal_radio_loopback_test(void)
 void hal_radio_loopback_test_hw_driven(void)
 {
 #if CONFIG_TRANSMITTER_EN && CONFIG_RECEIVER_EN
-
-    hal_radio_rx_config();
 
     unsigned char payload[] = HAL_RADIO_TEST_PAYLOAD;
     uint8_t payload_len = strlen((char*)payload);

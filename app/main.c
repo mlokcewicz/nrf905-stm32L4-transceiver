@@ -16,10 +16,10 @@ int main()
 {
     hal_init();
 
-    hal_radio_loopback_test_hw_driven();
-    
     hal_radio_rx_config();
     hal_uart_rx_start();
+    
+    hal_radio_loopback_test_hw_driven();
 
     printf("Transceiver started, waiting for messages...\n");
     
