@@ -15,8 +15,8 @@
 
 //------------------------------------------------------------------------------
 
-/// @brief Initializes system clocks, SysTick, watchdog, LED, USART2, SPI and the enabled nRF905 radios
-/// @note Configures the system clock to 40 MHz and USART2 to 115200 baud; prints radio diagnostics
+/// @brief Initializes system clocks, SysTick, watchdog, LED, UART4, SPI and the enabled nRF905 radios
+/// @note Configures the system clock to 40 MHz and UART4 to 115200 baud; prints radio diagnostics
 /// @note Starts the watchdog with a nominal 32.768 s timeout; initialization failure does not stop it
 /// @return true if USART, SPI and radio initialization succeeds, otherwise false
 bool hal_init(void);
@@ -34,8 +34,8 @@ void hal_wdg_feed(void);
 /// @param ms Delay duration in milliseconds
 void hal_delay(uint32_t ms);
 
-/// @brief Blocks until USART2 DMA receives payload bytes
-/// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to USART2
+/// @brief Blocks until UART4 DMA receives payload bytes
+/// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to UART4
 void hal_uart_rx_start(void);
 
 /// @brief Enables nRF RX reception and configures SPI2 DMA for a hardware-triggered payload read

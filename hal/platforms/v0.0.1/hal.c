@@ -29,10 +29,10 @@
 //------------------------------------------------------------------------------
 /* Hardware definitions */
 
-#define HAL_UART_TX_PORT                    A
-#define HAL_UART_TX_PIN                     2
-#define HAL_UART_RX_PORT                    A
-#define HAL_UART_RX_PIN                     3
+#define HAL_UART_TX_PORT                    C
+#define HAL_UART_TX_PIN                     10
+#define HAL_UART_RX_PORT                    C
+#define HAL_UART_RX_PIN                     11
 
 #define HAL_NRF_TX_SCK_PORT                 B
 #define HAL_NRF_TX_SCK_PIN                  3
@@ -70,7 +70,7 @@
 #define HAL_LED_PIN                         5
 
 /* GPIO alternate functions */
-#define HAL_UART_AF                         7
+#define HAL_UART_AF                         8
 #define HAL_NRF_TX_SPI_AF                   5
 #define HAL_NRF_RX_SPI_AF                   5
 #define HAL_NRF_RX_DR_AF                    3
@@ -96,7 +96,7 @@
 #define HAL_SYSCLK_SOURCE                   RCC_CFGR_SW_PLL
 
 /* USART configuration */
-#define HAL_UART_INSTANCE                   USART_INSTANCE_2
+#define HAL_UART_INSTANCE                   USART_INSTANCE_4
 #define HAL_UART_RX_TX                      (USART_TX_ENABLE | USART_RX_ENABLE)
 #define HAL_UART_DATA_SIZE                  USART_DATASIZE_8_BIT
 #define HAL_UART_PARITY                     USART_PARITY_DISABLED
@@ -126,10 +126,10 @@
 #define HAL_NRF_RX_SPI_DMA_TX_CHANNEL       DMA_CHANNEL_5
 #define HAL_NRF_RX_SPI_DMA_REQUEST          DMA_REQUEST_1
 
-/* USART2 DMA mapping */
-#define HAL_USART_DMA_INSTANCE              DMA_INSTANCE_1
-#define HAL_USART_DMA_RX_CHANNEL            DMA_CHANNEL_6
-#define HAL_USART_DMA_TX_CHANNEL            DMA_CHANNEL_7
+/* UART4 DMA mapping */
+#define HAL_USART_DMA_INSTANCE              DMA_INSTANCE_2
+#define HAL_USART_DMA_RX_CHANNEL            DMA_CHANNEL_5
+#define HAL_USART_DMA_TX_CHANNEL            DMA_CHANNEL_3
 #define HAL_USART_DMA_REQUEST               DMA_REQUEST_2
 
 
@@ -166,16 +166,16 @@ enum hal_tx_state
 //------------------------------------------------------------------------------
 /* Static objects */
 
-static struct usart_obj usart2_obj = {0};
-static volatile bool usart2_tx_done;
-static volatile bool usart2_rx_done;
+static struct usart_obj uart4_obj = {0};
+static volatile bool uart4_tx_done;
+static volatile bool uart4_rx_done;
 
 #if CONFIG_TRANSMITTER_EN
 static struct spi_obj spi1_obj = {0};
 static struct nrf905_obj nrf905_tx_obj;
 static volatile bool spi1_dma_rx_done;
 static volatile bool spi1_dma_tx_done;
-static uint8_t usart2_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
+static uint8_t uart4_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
 
 static volatile enum hal_tx_state nrf905_tx_state;
 #endif
@@ -266,7 +266,7 @@ __attribute__((naked)) void HardFault_Handler(void)
 
 int __io_putchar(int ch)
 {
-    usart_putc(&usart2_obj, ch);
+    usart_putc(&uart4_obj, ch);
     
     return 1;
 }
@@ -276,30 +276,34 @@ int __io_putchar(int ch)
 
 static bool usart_io_init(void)
 {
+    /* Keep the USART2 pins high impedance with ST-LINK bridges closed. */
+    GPIO_CONFIG(A, 2, GPIO_MODE_ANALOG, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(A, 3, GPIO_MODE_ANALOG, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+
     GPIO_CONFIG(HAL_UART_TX_PORT, HAL_UART_TX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
     GPIO_CONFIG(HAL_UART_RX_PORT, HAL_UART_RX_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, HAL_UART_AF);
 
     return true;
 }
 
-static void usart2_rx_dma_tc(void)
+static void uart4_rx_dma_tc(void)
 {
-    usart2_rx_done = true;
+    uart4_rx_done = true;
 
 #if CONFIG_TRANSMITTER_EN
     nrf905_tx_state = HAL_TX_ADDR_SENDING;
-    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, usart2_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, uart4_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
     nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
 #endif
 }
 
-static void usart2_tx_dma_tc(void)
+static void uart4_tx_dma_tc(void)
 {
-    usart_send_finish(&usart2_obj);
-    usart2_tx_done = true;
+    usart_send_finish(&uart4_obj);
+    uart4_tx_done = true;
 }
 
-static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
+static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
 {
     if (is_rx)
     {
@@ -307,7 +311,7 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
         {
             .inst = HAL_USART_DMA_INSTANCE,
             .channel = HAL_USART_DMA_RX_CHANNEL,
-            .tc = usart2_rx_dma_tc,
+            .tc = uart4_rx_dma_tc,
             .peripheral_address = periph_address,
             .memory_address = (uintptr_t)data,
             .count = len,
@@ -329,7 +333,7 @@ static void usart2_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t 
         {
             .inst = HAL_USART_DMA_INSTANCE,
             .channel = HAL_USART_DMA_TX_CHANNEL,
-            .tc = usart2_tx_dma_tc,
+            .tc = uart4_tx_dma_tc,
             .peripheral_address = periph_address,
             .memory_address = (uintptr_t)data,
             .count = len,
@@ -357,7 +361,7 @@ static void spi1_dma_rx_tc(void)
     if (nrf905_tx_state == HAL_TX_ADDR_SENDING)
     {
         nrf905_tx_state = HAL_TX_DATA_SENDING;
-        nrf905_set_tx_data(&nrf905_tx_obj, usart2_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
+        nrf905_set_tx_data(&nrf905_tx_obj, uart4_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     }
     else if (nrf905_tx_state == HAL_TX_DATA_SENDING)
     {
@@ -695,10 +699,10 @@ bool hal_init(void)
         .oversampling = HAL_UART_OVERSAMPLING,
         .baudrate = HAL_UART_BAUDRATE,
         .io_init = usart_io_init,
-        .dma_config = usart2_dma_config,
+        .dma_config = uart4_dma_config,
     };
 
-    if (!usart_init(&usart2_obj, &usart_cfg))
+    if (!usart_init(&uart4_obj, &usart_cfg))
         return false;
 
     dma_init(HAL_USART_DMA_INSTANCE);
@@ -723,10 +727,10 @@ bool hal_init(void)
         return false;
 #endif
 
-    if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_RX_CHANNEL, HAL_USART_DMA_REQUEST)) /* USART2 RX */
+    if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_RX_CHANNEL, HAL_USART_DMA_REQUEST)) /* UART4 RX */
         return false;
 
-    if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_TX_CHANNEL, HAL_USART_DMA_REQUEST)) /* USART2 RX */
+    if (!dma_channel_link(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_TX_CHANNEL, HAL_USART_DMA_REQUEST)) /* UART4 TX */
         return false;
 
 #if CONFIG_TRANSMITTER_EN
@@ -982,9 +986,9 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
 void hal_radio_tx_send(void)
 {
 #if CONFIG_TRANSMITTER_EN
-    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, usart2_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
+    printf("Sending %.*s to %02lX from %p...\n", HAL_RADIO_TX_PAYLOAD_SIZE, uart4_rx_payload, CONFIG_RADIO_TX_ADDRESS, &nrf905_tx_obj);
     nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
-    nrf905_set_tx_data(&nrf905_tx_obj, usart2_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
+    nrf905_set_tx_data(&nrf905_tx_obj, uart4_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
 
     systick_delay(HAL_RADIO_TEST_DELAY_MS); // TODO: Use DR
@@ -1058,8 +1062,8 @@ void hal_radio_loopback_test_hw_driven(void)
 void hal_uart_rx_start(void)
 {
 #if CONFIG_TRANSMITTER_EN
-    usart2_rx_done = false;
-    usart_receive(&usart2_obj, usart2_rx_payload, sizeof(usart2_rx_payload));
+    uart4_rx_done = false;
+    usart_receive(&uart4_obj, uart4_rx_payload, sizeof(uart4_rx_payload));
 #endif
 }
 
