@@ -872,8 +872,8 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     /* Trigger 2 clock cycles to generate DMA reqests for enabling SPI RX DMA */
     TIM8->SMCR |= TIM_SMCR_TS_2 | TIM_SMCR_TS_0; // Trigger selection: TI1FP1 TS: 101
     TIM8->SMCR |= TIM_SMCR_SMS_2 | TIM_SMCR_SMS_1; // Slave mode selection: Trigger Mode SMS: 0110
-    TIM8->ARR = 100 - 1; // Auto-reload value: 100 clock cycles
-    TIM8->CCR4 = 50; // Compare value: 50 clock cycles
+    TIM8->ARR = 10 - 1; // Auto-reload value: 10 clock cycles
+    TIM8->CCR4 = 5; // Compare value: 5 clock cycles
     TIM8->RCR = 1; // Repetition coun ter: 2 repetition
     TIM8->CR1 |= TIM_CR1_OPM; // One-pulse mode enabled (only 2 DMA requests will be generated)
 
