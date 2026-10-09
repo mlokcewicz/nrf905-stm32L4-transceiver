@@ -46,10 +46,6 @@ void hal_uart_rx_start(void);
 /// SPI releases NSS and the pull-up raises CS high, ending the transaction.
 void hal_radio_rx_config(void);
 
-/// @brief Reloads the nRF RX configuration and configures SPI2 DMA for a hardware-triggered payload read
-/// @note Requires successful hal_init() and a previously configured nRF RX instance
-void hal_radio_rx_config_reload(void);
-
 /// @brief Sends a 32-byte payload from nRF TX to the configured radio address
 /// @note Requires hal_init(), nRF TX in standby; when the receiver is enabled, its hardware reception and SPI TX DMA must be ready
 void hal_radio_tx_send(void);
