@@ -30,6 +30,8 @@ int main()
         hal_wdg_feed();
         
         hal_delay(500);
+
+        hal_wfi();
     }
 
     return 0;

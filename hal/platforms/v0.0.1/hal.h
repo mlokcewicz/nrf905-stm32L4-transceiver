@@ -34,6 +34,9 @@ void hal_wdg_feed(void);
 /// @param ms Delay duration in milliseconds
 void hal_delay(uint32_t ms);
 
+/// @brief Waits for an interrupt using the CPU WFI instruction
+void hal_wfi(void);
+
 /// @brief Blocks until UART4 DMA receives payload bytes
 /// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to UART4
 void hal_uart_rx_start(void);
