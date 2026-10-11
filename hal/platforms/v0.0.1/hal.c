@@ -151,7 +151,7 @@
 #define HAL_RADIO_TEST_DELAY_MS             1000
 #define HAL_RADIO_READ_CONFIG_0             0b00010000
 #define HAL_NRF_SPI_DUMMY_BYTE              0x00
-#define HAL_RADIO_TEST_PAYLOAD              "nRF905 RADIO TRX TEST MSG!"
+#define HAL_RADIO_TEST_PAYLOAD              "nRF905 RADIO TRX TEST MESSAGE!  "
 
 //------------------------------------------------------------------------------
 /* Type definitions */
@@ -167,7 +167,6 @@ enum hal_tx_state
 /* Static objects */
 
 static struct usart_obj uart4_obj = {0};
-static volatile bool uart4_tx_done;
 static volatile bool uart4_rx_done;
 
 #if CONFIG_TRANSMITTER_EN
@@ -186,7 +185,7 @@ static struct nrf905_obj nrf905_rx_obj;
 static volatile bool spi2_dma_rx_done;
 static volatile bool spi2_dma_tx_done;
 static uint8_t nrf_get_payload_request_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
-static uint8_t nrf_get_payload_received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = {0};
+static uint8_t nrf_get_payload_received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1 + 1] = {0}; // +1 for instruction byte, +1 for newline   
 #endif
 
 //------------------------------------------------------------------------------
@@ -297,12 +296,6 @@ static void uart4_rx_dma_tc(void)
 #endif
 }
 
-static void uart4_tx_dma_tc(void)
-{
-    usart_send_finish(&uart4_obj);
-    uart4_tx_done = true;
-}
-
 static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
 {
     if (is_rx)
@@ -333,7 +326,7 @@ static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t l
         {
             .inst = HAL_USART_DMA_INSTANCE,
             .channel = HAL_USART_DMA_TX_CHANNEL,
-            .tc = uart4_tx_dma_tc,
+            .tc = NULL,
             .peripheral_address = periph_address,
             .memory_address = (uintptr_t)data,
             .count = len,
@@ -370,12 +363,9 @@ static void spi1_dma_rx_tc(void)
         // TODO: Remove this section and implement hw-driven RX
         volatile uint32_t delay = 0;
         for (delay = 0; delay < 100000; delay++) {} // Wait for the transmission to finish
+
         nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
-        printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
-
-        memset(nrf_get_payload_received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
-        
         nrf905_tx_state = HAL_TX_IDLE;
     }
 #endif
@@ -903,6 +893,9 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     /* Generate UP events for DMA requests for enabling DMA to disable SPI TX DMA */
     TIM8->DIER |= TIM_DIER_UDE; 
 
+    /* Add newline at the end of the received data */
+    nrf_get_payload_received_data[HAL_RADIO_TX_PAYLOAD_SIZE + 1] = '\n';
+
     /* Configure DMA channel and request for enabling SPI transfer on DR rising edge */
     static uint32_t spi2_cr1_data[2] = {0};
     spi2_cr1_data[0] = HAL_NRF_RX_SPI_BASE->CR1 | SPI_CR1_SPE;
@@ -956,7 +949,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_rearm_cfg);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_2, DMA_REQUEST_7);
 
-        /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
+    /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
     static uint32_t nrf_rx_dma_spi_rx_enable_cfg = 0;
     nrf_rx_dma_spi_rx_enable_cfg =  DMA1_Channel5->CCR | DMA_CCR_EN; /* Enable DMA channel in CCR */
 
@@ -980,6 +973,129 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
 
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_enable_cfg);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_1, DMA_REQUEST_7);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /* Route the shared radio DR signal to TIM1_CH1. */
+    GPIO_CONFIG(A, 8, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 1);
+
+    /* Configure TIM1 to rearm DMA for UART4 TX */
+    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+    (void)RCC->APB2ENR;
+
+    /* Disable DMA requests generation */
+    TIM1->DIER = 0; 
+
+    /* Generate CC1 event on the falling edge captured by CH1 */
+    TIM1->CCMR1 |= TIM_CCMR1_CC1S_0; // IC1 is mapped on TI1
+    TIM1->CCMR1 |= TIM_CCMR1_IC1F_1 | TIM_CCMR1_IC1F_0; // IC1 filter: fSAMPLING=fckint/2, N=8
+    TIM1->CCMR1 &= ~TIM_CCMR1_IC1PSC; // no prescaler, capture is done each time an edge is detected
+    TIM1->CCER |= TIM_CCER_CC1P;   // Falling edges
+    TIM1->CCER &= ~TIM_CCER_CC1NP; // Falling edges
+    TIM1->CCER |= TIM_CCER_CC1E; // CC1 input capture enabled
+
+    /* Run two timer periods to disable UART TX DMA and reload its count */
+    TIM1->SMCR |= TIM_SMCR_TS_2 | TIM_SMCR_TS_0; // Trigger selection: TI1FP1 TS: 101
+    TIM1->SMCR |= TIM_SMCR_SMS_2 | TIM_SMCR_SMS_1; // Slave mode selection: Trigger Mode SMS: 0110
+    TIM1->ARR = 10 - 1; // Auto-reload value: 10 clock cycles
+    TIM1->CCR3 = 5; // Compare value: 5 clock cycles
+    TIM1->RCR = 1; // Repetition coun ter: 2 repetition
+    TIM1->CR1 |= TIM_CR1_OPM; // One-pulse mode enabled (only 2 DMA requests will be generated)
+
+    TIM1->EGR = TIM_EGR_UG; // Load RCR, ARR and CCRx registers with their preload values before DMA requests are enabked
+    TIM1->SR = 0;
+
+    TIM1->DIER |= TIM_DIER_CC3DE; // Enable DMA request on CC3 event (when CNT reaches CCR3 value)
+
+    // repetition #1:
+    // CNT 0 ... 5 ... 9
+    //           ^
+    //           DMA request #1
+
+    // repetition #2:
+    // CNT 0 ... 5 ... 9
+    //           ^
+    //           DMA request #2
+
+    /* Generate an update DMA request to enable UART4 TX DMA */
+    TIM1->DIER |= TIM_DIER_UDE; 
+
+    /*Disable UART TX DMA request generation */
+    UART4->CR3 &= ~USART_CR3_DMAT;
+    
+    uart4_dma_config((uintptr_t)&UART4->TDR, nrf_get_payload_received_data + 1, HAL_RADIO_RX_PAYLOAD_SIZE + 1, false);
+    
+    /* Disable DMA channel to prevent unwanted transfers on first DR signal*/
+    DMA2_Channel3->CCR &= ~DMA_CCR_EN;
+    UART4->CR3 |= USART_CR3_DMAT;
+    UART4->CR1 |= USART_CR1_UE;
+
+    /* Configure DMA channel and request for enabling disabling UART4 TX DMA on DR falling edge */
+    static uint32_t nrf_rx_dma_uart4_tx_rearm_cfg[2] = {0};
+    nrf_rx_dma_uart4_tx_rearm_cfg[0] =  DMA2_Channel3->CCR & ~DMA_CCR_EN; /* Disable DMA channel in CCR */
+    nrf_rx_dma_uart4_tx_rearm_cfg[1] =  HAL_RADIO_RX_PAYLOAD_SIZE + 1;    /* Set the number of data items to transfer in CNDTR */
+
+    struct dma_channel_cfg tim1_nrf_rx_dma_uart4_tx_rearm_cfg =
+    {
+        .inst = DMA_INSTANCE_1,
+        .channel = DMA_CHANNEL_7,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)DMA2_Channel3,
+        .memory_address = (uintptr_t)&nrf_rx_dma_uart4_tx_rearm_cfg,
+        .count = sizeof(nrf_rx_dma_uart4_tx_rearm_cfg) / sizeof(uint32_t),
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = true,
+        .peripheral_increment = true,
+        .circular = true,
+        .memory_to_memory = false,
+    };
+
+    dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_rearm_cfg);
+    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_7, DMA_REQUEST_7);
+
+    /* Configure DMA channel and request for enabling disabling UART4 TX DMA on DR falling edge */
+    static uint32_t nrf_rx_dma_uart4_tx_enable_cfg = 0;
+    nrf_rx_dma_uart4_tx_enable_cfg =  DMA2_Channel3->CCR | DMA_CCR_EN; /* Enable DMA channel in CCR */
+
+    struct dma_channel_cfg tim1_nrf_rx_dma_uart4_tx_enable_cfg =
+    {
+        .inst = DMA_INSTANCE_1,
+        .channel = DMA_CHANNEL_6,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)DMA2_Channel3,
+        .memory_address = (uintptr_t)&nrf_rx_dma_uart4_tx_enable_cfg,
+        .count = sizeof(nrf_rx_dma_uart4_tx_enable_cfg) / sizeof(uint32_t),
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = true,
+        .peripheral_increment = true,
+        .circular = true,
+        .memory_to_memory = false,
+    };
+
+    dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_enable_cfg);
+    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_7);
 #endif
 }
 
@@ -995,13 +1111,6 @@ void hal_radio_tx_send(void)
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
-#if CONFIG_RECEIVER_EN
-    /* Hardware magic */
-
-    printf("Received data: %.*s, on %p\n", HAL_RADIO_TX_PAYLOAD_SIZE, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
-
-    memset(nrf_get_payload_received_data + 1, 0x00, HAL_RADIO_TX_PAYLOAD_SIZE);
-#endif
 #endif
 }
 
@@ -1052,10 +1161,6 @@ void hal_radio_loopback_test_hw_driven(void)
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
     /* Hardware magic */
-
-    printf("Received data: %.*s, on %p\n", payload_len, nrf_get_payload_received_data + 1, &nrf905_rx_obj);
-
-    memset(nrf_get_payload_received_data + 1, 0x00, payload_len);
 #endif
 }
 
