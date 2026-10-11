@@ -46,6 +46,10 @@ void hal_uart_rx_start(void);
 /// SPI releases NSS and the pull-up raises CS high, ending the transaction.
 void hal_radio_rx_config(void);
 
+/// @brief Configures TIM4 and DMA to clear transmitter CE and TX_EN on a rising DR edge
+/// @note Requires hal_init() and transmitter DR connected to PB6; auto retransmit must be disabled
+void hal_radio_tx_config(void);
+
 /// @brief Sends a 32-byte payload from nRF TX to the configured radio address
 /// @note Requires hal_init(), nRF TX in standby; when the receiver is enabled, its hardware reception and SPI TX DMA must be ready
 void hal_radio_tx_send(void);

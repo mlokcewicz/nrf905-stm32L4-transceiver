@@ -16,6 +16,7 @@ int main()
 {
     hal_init();
 
+    hal_radio_tx_config();
     hal_radio_rx_config();
     hal_uart_rx_start();
     

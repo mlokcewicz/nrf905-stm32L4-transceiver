@@ -56,8 +56,8 @@
 #define HAL_NRF_TX_PWR_PIN                  0
 #define HAL_NRF_TX_CE_PORT                  C
 #define HAL_NRF_TX_CE_PIN                   8
-#define HAL_NRF_TX_DR_PORT                  C
-#define HAL_NRF_TX_DR_PIN                   9
+#define HAL_NRF_TX_DR_PORT                  B
+#define HAL_NRF_TX_DR_PIN                   6
 #define HAL_NRF_RX_CE_PORT                  C
 #define HAL_NRF_RX_CE_PIN                   0
 #define HAL_NRF_RX_TXE_PORT                 C
@@ -172,6 +172,7 @@ static volatile bool uart4_rx_done;
 #if CONFIG_TRANSMITTER_EN
 static struct spi_obj spi1_obj = {0};
 static struct nrf905_obj nrf905_tx_obj;
+static uint32_t nrf_tx_stop_mask = (1UL << (HAL_NRF_TX_CE_PIN + 16)) | (1UL << (HAL_NRF_TX_TXE_PIN + 16));
 static volatile bool spi1_dma_rx_done;
 static volatile bool spi1_dma_tx_done;
 static uint8_t uart4_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
@@ -359,12 +360,6 @@ static void spi1_dma_rx_tc(void)
     else if (nrf905_tx_state == HAL_TX_DATA_SENDING)
     {
         nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
-        
-        // TODO: Remove this section and implement hw-driven RX
-        volatile uint32_t delay = 0;
-        for (delay = 0; delay < 100000; delay++) {} // Wait for the transmission to finish
-
-        nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
         nrf905_tx_state = HAL_TX_IDLE;
     }
@@ -533,7 +528,7 @@ static bool nrf905_tx_io_init_cb(void)
     GPIO_CONFIG(HAL_NRF_TX_TXE_PORT, HAL_NRF_TX_TXE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
     GPIO_CONFIG(HAL_NRF_TX_PWR_PORT, HAL_NRF_TX_PWR_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
     GPIO_CONFIG(HAL_NRF_TX_CE_PORT, HAL_NRF_TX_CE_PIN, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
-    GPIO_CONFIG(HAL_NRF_TX_DR_PORT, HAL_NRF_TX_DR_PIN, GPIO_MODE_INPUT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 0);
+    GPIO_CONFIG(HAL_NRF_TX_DR_PORT, HAL_NRF_TX_DR_PIN, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 2);
 
     return true;
 }
@@ -826,6 +821,46 @@ bool hal_init(void)
     return true;
 }
 
+void hal_radio_tx_config(void)
+{
+#if CONFIG_TRANSMITTER_EN
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM4EN;
+    (void)RCC->APB1ENR1;
+    TIM4->DIER &= ~TIM_DIER_CC1DE;
+    TIM4->CCER &= ~TIM_CCER_CC1E;
+    TIM4->CCMR1 &= ~(TIM_CCMR1_CC1S | TIM_CCMR1_IC1PSC | TIM_CCMR1_IC1F);
+    TIM4->CCMR1 |= TIM_CCMR1_CC1S_0;
+    TIM4->CCER &= ~TIM_CCER_CC1P; // Rising DR edge
+    TIM4->CCER &= ~TIM_CCER_CC1NP;
+    TIM4->SR = 0;
+
+    dma_init(DMA_INSTANCE_1);
+    struct dma_channel_cfg tx_stop_cfg =
+    {
+        .inst = DMA_INSTANCE_1,
+        .channel = DMA_CHANNEL_1,
+        .tc = NULL,
+        .peripheral_address = (uintptr_t)&GPIOC->BSRR,
+        .memory_address = (uintptr_t)&nrf_tx_stop_mask,
+        .count = 1,
+        .peripheral_size = DMA_DATA_SIZE_32_BIT,
+        .memory_size = DMA_DATA_SIZE_32_BIT,
+        .direction = DMA_MEMORY_TO_PERIPHERAL,
+        .priority = DMA_PRIORITY_LOW,
+        .memory_increment = false,
+        .peripheral_increment = false,
+        .circular = true,
+        .memory_to_memory = false,
+    };
+    dma_channel_config(&tx_stop_cfg);
+    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_1, DMA_REQUEST_6);
+
+    TIM4->CCER |= TIM_CCER_CC1E;
+    TIM4->DIER |= TIM_DIER_CC1DE;
+    TIM4->CR1 |= TIM_CR1_CEN;
+#endif
+}
+
 void hal_radio_rx_config(void) // TODO: Remove direct register access
 {
 #if CONFIG_RECEIVER_EN
@@ -974,24 +1009,6 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_enable_cfg);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_1, DMA_REQUEST_7);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /* Route the shared radio DR signal to TIM1_CH1. */
     GPIO_CONFIG(A, 8, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 1);
 
@@ -1106,10 +1123,6 @@ void hal_radio_tx_send(void)
     nrf905_set_tx_addr(&nrf905_tx_obj, CONFIG_RADIO_TX_ADDRESS);
     nrf905_set_tx_data(&nrf905_tx_obj, uart4_rx_payload, HAL_RADIO_TX_PAYLOAD_SIZE);   
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_SHOCKBURST_TX_RADIO_EN); 
-
-    systick_delay(HAL_RADIO_TEST_DELAY_MS); // TODO: Use DR
-
-    nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
 
 #endif
 }
