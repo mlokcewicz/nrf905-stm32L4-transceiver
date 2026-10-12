@@ -31,7 +31,7 @@ PlantUML sources: [RX and TX sequences](docs/rx_tx_sequence.md).
 
 The system and APB clocks use MSI at 2 MHz, with voltage scaling Range 2 and the main PLL disabled. UART4 uses the independent HSI16 clock to retain 115200 baud. SPI1/SPI2 retain the /16 prescaler, giving a 125 kHz SPI clock.
 
-`hal_init()` selects the low-power regulator once, so the application runs in Low-power run. `hal_sleep()` executes WFI with SLEEPDEEP and SLEEPONEXIT cleared. DMA, SRAM, GPIO, TIM1/TIM4/TIM8, SPI1/SPI2 and UART4 clocks remain enabled during Low-power sleep. HSIKERON keeps the independent UART kernel clock enabled. After wakeup, the application remains in Low-power run; the regulator and system clock are unchanged.
+`hal_init()` selects the low-power regulator once, so the application runs in Low-power run. `hal_sleep()` executes WFI with SLEEPDEEP and SLEEPONEXIT cleared. DMA, SRAM, GPIO, TIM1/TIM4/TIM8, SPI1/SPI2 and UART4 clocks remain enabled during Low-power sleep. HSI16 remains enabled through HSION for the independent UART kernel clock. After wakeup, the application remains in Low-power run; the regulator and system clock are unchanged.
 
 
 ### DMA channel allocation

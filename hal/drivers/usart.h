@@ -36,6 +36,14 @@ enum usart_instance
     USART_INSTANCE_5,
 };
 
+enum usart_clock_source
+{
+    USART_CLOCK_PCLK = 0b00,
+    USART_CLOCK_SYSCLK = 0b01,
+    USART_CLOCK_HSI16 = 0b10,
+    USART_CLOCK_LSE = 0b11,
+};
+
 enum usart_rx_tx
 {
     USART_TX_ENABLE = 1 << 0,
@@ -75,6 +83,7 @@ enum usart_stop_bits
 struct usart_cfg
 {
     enum usart_instance inst;
+    enum usart_clock_source clock_source;
     enum usart_rx_tx rx_tx;
     enum usart_data_size data_size;
     enum usart_parity parity;
@@ -102,7 +111,7 @@ struct usart_obj
 //------------------------------------------------------------------------------
 
 /// @brief Initializes USART module according to given configuration
-/// @note Derives the USART clock from RCC and sets baud rate with the configured oversampling, using integer division without rounding
+/// @note Selects cfg->clock_source in RCC, derives the USART clock and sets baud rate with the configured oversampling, using integer division without rounding
 /// @note Requires an up-to-date SystemCoreClock for PCLK/SYSCLK sources; clock configuration must be stable
 /// @note Calls cfg->io_init, if provided, after argument validation; returns false immediately if the callback fails
 /// @note Enables the peripheral clock; enable the selected clock source before calling or in io_init; oscillator constants must match hardware

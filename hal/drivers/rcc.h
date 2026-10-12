@@ -62,6 +62,14 @@ struct rcc_config
     struct main_pll_config pll;
 };
 
+struct rcc_sleep_clock_config
+{
+    uint32_t ahb1;
+    uint32_t ahb2;
+    uint32_t apb1;
+    uint32_t apb2;
+};
+
 //------------------------------------------------------------------------------
 
 /// @brief Configures MSI, LSI, HSI, HSE, bus prescalers, the main PLL and SYSCLK
@@ -76,7 +84,11 @@ void rcc_init(struct rcc_config *cfg);
 /// @note Set RCC_CR.MSIRANGE and suitable voltage/Flash latency before switching.
 /// @note MSI must be off or ready. Does not update SystemCoreClock.
 /// @note Software cannot switch back to the CSR range; reset or Standby clears MSIRGSEL.
-void rcc_msi_range_select(void);
+void rcc_msi_range_restore_from_standby(void);
+
+/// @brief Keeps the selected buses' peripheral and memory clocks enabled during Sleep
+/// @param cfg Masks of RCC_AHB1SMENR, AHB2SMENR, APB1SMENR1 and APB2SMENR bits
+void rcc_sleep_clocks_enable(const struct rcc_sleep_clock_config *cfg);
 
 //------------------------------------------------------------------------------
 

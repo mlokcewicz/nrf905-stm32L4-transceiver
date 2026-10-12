@@ -32,17 +32,18 @@ static USART_TypeDef * usart_base[] =
 
 //------------------------------------------------------------------------------
 
+static const uint8_t clock_source_pos[] =
+{
+    [USART_INSTANCE_1] = RCC_CCIPR_USART1SEL_Pos,
+    [USART_INSTANCE_2] = RCC_CCIPR_USART2SEL_Pos,
+    [USART_INSTANCE_3] = RCC_CCIPR_USART3SEL_Pos,
+    [USART_INSTANCE_4] = RCC_CCIPR_UART4SEL_Pos,
+    [USART_INSTANCE_5] = RCC_CCIPR_UART5SEL_Pos,
+};
+
+
 static uint32_t usart_get_clock_hz(enum usart_instance inst)
 {
-    const uint8_t clock_source_pos[] =
-    {
-        [USART_INSTANCE_1] = RCC_CCIPR_USART1SEL_Pos,
-        [USART_INSTANCE_2] = RCC_CCIPR_USART2SEL_Pos,
-        [USART_INSTANCE_3] = RCC_CCIPR_USART3SEL_Pos,
-        [USART_INSTANCE_4] = RCC_CCIPR_UART4SEL_Pos,
-        [USART_INSTANCE_5] = RCC_CCIPR_UART5SEL_Pos,
-    };
-
     uint32_t source = (RCC->CCIPR >> clock_source_pos[inst]) & 0x3U; /* Extract the two-bit USARTxSEL/UARTxSEL field */
 
     if (source == 2U) /* 10: HSI16 selected as USART clock */
@@ -69,7 +70,10 @@ static uint32_t usart_get_clock_hz(enum usart_instance inst)
 
 bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
 {
-    if (!obj || !cfg || cfg->data_size == USART_DATASIZE_9_BIT || (uint32_t)cfg->inst > USART_INSTANCE_5 || cfg->baudrate == 0U || (uint32_t)cfg->oversampling > USART_OVERSAMPLING_8)
+    if (!obj || !cfg || cfg->data_size == USART_DATASIZE_9_BIT || (uint32_t)cfg->inst > USART_INSTANCE_5 || cfg->baudrate == 0U || (uint32_t)cfg->oversampling > USART_OVERSAMPLING_8 || (uint32_t)cfg->clock_source > USART_CLOCK_LSE)
+        return false;
+
+    if (cfg->io_init && !cfg->io_init())
         return false;
 
     const uintptr_t usart_clock_enable[][2] =
@@ -81,8 +85,19 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
         [USART_INSTANCE_5] = {(uintptr_t)&RCC->APB1ENR1, RCC_APB1ENR1_UART5EN},
     };
 
-    if (cfg->io_init && !cfg->io_init())
-        return false;
+    USART_TypeDef *base = usart_base[cfg->inst];
+
+    /* Enable the selected USART peripheral clock. */
+    volatile uint32_t *clock_reg = (volatile uint32_t *)usart_clock_enable[cfg->inst][0];
+    *clock_reg |= (uint32_t)usart_clock_enable[cfg->inst][1];
+    (void)*clock_reg; /* Allow the peripheral clock to become active */
+
+    /* Disable USART */
+    base->CR1 &= ~USART_CR1_UE;
+
+    /* Select the kernel clock before calculating BRR. */
+    RCC->CCIPR &= ~(0b11U << clock_source_pos[cfg->inst]);
+    RCC->CCIPR |= (uint32_t)cfg->clock_source << clock_source_pos[cfg->inst];
 
     uint32_t clock_hz = usart_get_clock_hz(cfg->inst);
     uint32_t brr = (cfg->oversampling == USART_OVERSAMPLING_8) ? (2U * clock_hz) / cfg->baudrate : clock_hz / cfg->baudrate;
@@ -101,16 +116,6 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
     obj->dma_config = cfg->dma_config;
 
     obj->inst = cfg->inst;
-
-    USART_TypeDef *base = usart_base[obj->inst];
-
-    /* Enable the selected USART peripheral clock. */
-    volatile uint32_t *clock_reg = (volatile uint32_t *)usart_clock_enable[obj->inst][0];
-    *clock_reg |= (uint32_t)usart_clock_enable[obj->inst][1];
-    (void)*clock_reg; /* Allow the peripheral clock to become active */
-
-    /* Disable USART */
-    base->CR1 &= ~USART_CR1_UE;
 
     /* Set oversampling and baud rate. */
     base->CR1 &= ~USART_CR1_OVER8;
@@ -147,7 +152,6 @@ bool usart_init(struct usart_obj *obj, struct usart_cfg *cfg)
         base->CR3 |= USART_CR3_DMAT;
         base->CR3 |= USART_CR3_DMAR;
     }
-
 
     return true;
 }
@@ -268,8 +272,5 @@ void usart_deinit(struct usart_obj *obj)
 
     memset(obj, 0x00, sizeof(*obj));
 }
-
-//------------------------------------------------------------------------------
-
 
 //------------------------------------------------------------------------------

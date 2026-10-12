@@ -99,6 +99,18 @@ void rcc_init(struct rcc_config *cfg)
         while (RCC->CR & RCC_CR_MSIRDY) {}
     }
 }
+
+void rcc_msi_range_restore_from_standby(void)
+{
+    RCC->CR |= RCC_CR_MSIRGSEL;
+}
+
+void rcc_sleep_clocks_enable(const struct rcc_sleep_clock_config *cfg)
+{
+    RCC->AHB1SMENR |= cfg->ahb1;
+    RCC->AHB2SMENR |= cfg->ahb2;
+    RCC->APB1SMENR1 |= cfg->apb1;
+    RCC->APB2SMENR |= cfg->apb2;
 }
 
 //------------------------------------------------------------------------------

@@ -100,6 +100,7 @@
 
 /* USART configuration */
 #define HAL_UART_INSTANCE                   USART_INSTANCE_4
+#define HAL_UART_CLOCK_SOURCE               USART_CLOCK_HSI16
 #define HAL_UART_RX_TX                      (USART_TX_ENABLE | USART_RX_ENABLE)
 #define HAL_UART_DATA_SIZE                  USART_DATASIZE_8_BIT
 #define HAL_UART_PARITY                     USART_PARITY_DISABLED
@@ -684,6 +685,7 @@ bool hal_init(void)
     struct usart_cfg usart_cfg =
     {
         .inst = HAL_UART_INSTANCE,
+        .clock_source = HAL_UART_CLOCK_SOURCE,
         .rx_tx = HAL_UART_RX_TX,
         .data_size = HAL_UART_DATA_SIZE,
         .parity = HAL_UART_PARITY,
@@ -848,6 +850,20 @@ bool hal_init(void)
     }
 
 #endif
+
+    /* Keep every clock used by the hardware radio paths running in Sleep. */
+    const struct rcc_sleep_clock_config sleep_clocks =
+    {
+        .ahb1 = RCC_AHB1SMENR_DMA1SMEN | RCC_AHB1SMENR_DMA2SMEN | RCC_AHB1SMENR_SRAM1SMEN | RCC_AHB1SMENR_FLASHSMEN,
+        .ahb2 = RCC_AHB2SMENR_GPIOASMEN | RCC_AHB2SMENR_GPIOBSMEN | RCC_AHB2SMENR_GPIOCSMEN | RCC_AHB2SMENR_SRAM2SMEN,
+        .apb1 = RCC_APB1SMENR1_TIM4SMEN | RCC_APB1SMENR1_SPI2SMEN | RCC_APB1SMENR1_UART4SMEN | RCC_APB1SMENR1_PWRSMEN,
+        .apb2 = RCC_APB2SMENR_TIM1SMEN | RCC_APB2SMENR_TIM8SMEN | RCC_APB2SMENR_SPI1SMEN,
+    };
+    
+    rcc_sleep_clocks_enable(&sleep_clocks);
+
+    /* Remain in Low-power run between Sleep periods. */
+    pwr_sleep_mode_select(PWR_MODE_LOW_POWER);
 
     return true;
 }
