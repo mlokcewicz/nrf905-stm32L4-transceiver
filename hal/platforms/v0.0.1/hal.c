@@ -143,8 +143,28 @@
 
 /* Radio timer mapping */
 #define HAL_NRF_TX_DR_TIM_BASE              TIM4
+#define HAL_NRF_TX_DR_DMA_INSTANCE          DMA_INSTANCE_1
+#define HAL_NRF_TX_DR_DMA_CHANNEL           DMA_CHANNEL_1
+#define HAL_NRF_TX_DR_DMA_REQUEST           DMA_REQUEST_6
+
 #define HAL_NRF_RX_DR_SPI_TIM_BASE          TIM8
+#define HAL_NRF_RX_DR_SPI_DMA_INSTANCE      DMA_INSTANCE_2
+#define HAL_NRF_RX_DR_SPI_DMA_CHANNEL       DMA_CHANNEL_7
+#define HAL_NRF_RX_DR_SPI_DMA_REQUEST       DMA_REQUEST_7
+#define HAL_NRF_RX_SPI_REARM_DMA_INSTANCE   DMA_INSTANCE_2
+#define HAL_NRF_RX_SPI_REARM_DMA_CHANNEL    DMA_CHANNEL_2
+#define HAL_NRF_RX_SPI_REARM_DMA_REQUEST    DMA_REQUEST_7
+#define HAL_NRF_RX_SPI_ENABLE_DMA_INSTANCE  DMA_INSTANCE_2
+#define HAL_NRF_RX_SPI_ENABLE_DMA_CHANNEL   DMA_CHANNEL_1
+#define HAL_NRF_RX_SPI_ENABLE_DMA_REQUEST   DMA_REQUEST_7
+
 #define HAL_NRF_RX_DR_UART_TIM_BASE         TIM1
+#define HAL_NRF_RX_UART_REARM_DMA_INSTANCE  DMA_INSTANCE_1
+#define HAL_NRF_RX_UART_REARM_DMA_CHANNEL   DMA_CHANNEL_7
+#define HAL_NRF_RX_UART_REARM_DMA_REQUEST   DMA_REQUEST_7
+#define HAL_NRF_RX_UART_ENABLE_DMA_INSTANCE DMA_INSTANCE_1
+#define HAL_NRF_RX_UART_ENABLE_DMA_CHANNEL  DMA_CHANNEL_6
+#define HAL_NRF_RX_UART_ENABLE_DMA_REQUEST  DMA_REQUEST_7
 
 /* Shared radio configuration */
 #define HAL_RADIO_RX_REDUCED_POWER          false
@@ -902,11 +922,11 @@ void hal_radio_tx_config(void)
 
     static uint32_t nrf_tx_stop_mask = (1UL << (HAL_NRF_TX_CE_PIN + 16)) | (1UL << (HAL_NRF_TX_TXE_PIN + 16));
 
-    dma_init(DMA_INSTANCE_1);
+    dma_init(HAL_NRF_TX_DR_DMA_INSTANCE);
     struct dma_channel_cfg tx_stop_cfg =
     {
-        .inst = DMA_INSTANCE_1,
-        .channel = DMA_CHANNEL_1,
+        .inst = HAL_NRF_TX_DR_DMA_INSTANCE,
+        .channel = HAL_NRF_TX_DR_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&HAL_NRF_TX_CE_TXE_GPIO_BASE->BSRR,
         .memory_address = (uintptr_t)&nrf_tx_stop_mask,
@@ -922,7 +942,7 @@ void hal_radio_tx_config(void)
     };
     dma_channel_config(&tx_stop_cfg);
     dma_channel_enable(tx_stop_cfg.inst, tx_stop_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_1, DMA_REQUEST_6);
+    dma_channel_link(HAL_NRF_TX_DR_DMA_INSTANCE, HAL_NRF_TX_DR_DMA_CHANNEL, HAL_NRF_TX_DR_DMA_REQUEST);
 
     HAL_NRF_TX_DR_TIM_BASE->CCER |= TIM_CCER_CC1E;
     HAL_NRF_TX_DR_TIM_BASE->DIER |= TIM_DIER_CC1DE;
@@ -998,11 +1018,11 @@ void hal_radio_rx_config(void)
     spi2_cr1_data[0] = HAL_NRF_RX_SPI_BASE->CR1 | SPI_CR1_SPE;
     spi2_cr1_data[1] = HAL_NRF_RX_SPI_BASE->CR1 & ~SPI_CR1_SPE;
 
-    dma_init(DMA_INSTANCE_2);
+    dma_init(HAL_NRF_RX_DR_SPI_DMA_INSTANCE);
     struct dma_channel_cfg tim8_spi_start_cfg =
     {
-        .inst = DMA_INSTANCE_2,
-        .channel = DMA_CHANNEL_7,
+        .inst = HAL_NRF_RX_DR_SPI_DMA_INSTANCE,
+        .channel = HAL_NRF_RX_DR_SPI_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)&HAL_NRF_RX_SPI_BASE->CR1,
         .memory_address = (uintptr_t)&spi2_cr1_data,
@@ -1019,7 +1039,7 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim8_spi_start_cfg);
     dma_channel_enable(tim8_spi_start_cfg.inst, tim8_spi_start_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_7, DMA_REQUEST_7);
+    dma_channel_link(HAL_NRF_RX_DR_SPI_DMA_INSTANCE, HAL_NRF_RX_DR_SPI_DMA_CHANNEL, HAL_NRF_RX_DR_SPI_DMA_REQUEST);
 
     /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
     static uint32_t nrf_rx_dma_spi_rx_rearm_cfg[2] = {0};
@@ -1028,8 +1048,8 @@ void hal_radio_rx_config(void)
 
     struct dma_channel_cfg tim8_nrf_rx_dma_spi_rx_rearm_cfg =
     {
-        .inst = DMA_INSTANCE_2,
-        .channel = DMA_CHANNEL_2,
+        .inst = HAL_NRF_RX_SPI_REARM_DMA_INSTANCE,
+        .channel = HAL_NRF_RX_SPI_REARM_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)HAL_NRF_RX_SPI_DMA_TX_CHANNEL_BASE,
         .memory_address = (uintptr_t)&nrf_rx_dma_spi_rx_rearm_cfg,
@@ -1046,7 +1066,7 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_rearm_cfg);
     dma_channel_enable(tim8_nrf_rx_dma_spi_rx_rearm_cfg.inst, tim8_nrf_rx_dma_spi_rx_rearm_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_2, DMA_REQUEST_7);
+    dma_channel_link(HAL_NRF_RX_SPI_REARM_DMA_INSTANCE, HAL_NRF_RX_SPI_REARM_DMA_CHANNEL, HAL_NRF_RX_SPI_REARM_DMA_REQUEST);
 
     /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
     static uint32_t nrf_rx_dma_spi_rx_enable_cfg = 0;
@@ -1054,8 +1074,8 @@ void hal_radio_rx_config(void)
 
     struct dma_channel_cfg tim8_nrf_rx_dma_spi_rx_enable_cfg =
     {
-        .inst = DMA_INSTANCE_2,
-        .channel = DMA_CHANNEL_1,
+        .inst = HAL_NRF_RX_SPI_ENABLE_DMA_INSTANCE,
+        .channel = HAL_NRF_RX_SPI_ENABLE_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)HAL_NRF_RX_SPI_DMA_TX_CHANNEL_BASE,
         .memory_address = (uintptr_t)&nrf_rx_dma_spi_rx_enable_cfg,
@@ -1072,7 +1092,7 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_enable_cfg);
     dma_channel_enable(tim8_nrf_rx_dma_spi_rx_enable_cfg.inst, tim8_nrf_rx_dma_spi_rx_enable_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_1, DMA_REQUEST_7);
+    dma_channel_link(HAL_NRF_RX_SPI_ENABLE_DMA_INSTANCE, HAL_NRF_RX_SPI_ENABLE_DMA_CHANNEL, HAL_NRF_RX_SPI_ENABLE_DMA_REQUEST);
 
     /* Route the shared radio DR signal to TIM1_CH1. */
     GPIO_CONFIG(A, 8, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE, 1);
@@ -1128,8 +1148,8 @@ void hal_radio_rx_config(void)
 
     struct dma_channel_cfg tim1_nrf_rx_dma_uart4_tx_rearm_cfg =
     {
-        .inst = DMA_INSTANCE_1,
-        .channel = DMA_CHANNEL_7,
+        .inst = HAL_NRF_RX_UART_REARM_DMA_INSTANCE,
+        .channel = HAL_NRF_RX_UART_REARM_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)HAL_USART_DMA_TX_CHANNEL_BASE,
         .memory_address = (uintptr_t)&nrf_rx_dma_uart4_tx_rearm_cfg,
@@ -1146,7 +1166,7 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_rearm_cfg);
     dma_channel_enable(tim1_nrf_rx_dma_uart4_tx_rearm_cfg.inst, tim1_nrf_rx_dma_uart4_tx_rearm_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_7, DMA_REQUEST_7);
+    dma_channel_link(HAL_NRF_RX_UART_REARM_DMA_INSTANCE, HAL_NRF_RX_UART_REARM_DMA_CHANNEL, HAL_NRF_RX_UART_REARM_DMA_REQUEST);
 
     /* Configure DMA channel and request for enabling disabling UART4 TX DMA on DR falling edge */
     static uint32_t nrf_rx_dma_uart4_tx_enable_cfg = 0;
@@ -1154,8 +1174,8 @@ void hal_radio_rx_config(void)
 
     struct dma_channel_cfg tim1_nrf_rx_dma_uart4_tx_enable_cfg =
     {
-        .inst = DMA_INSTANCE_1,
-        .channel = DMA_CHANNEL_6,
+        .inst = HAL_NRF_RX_UART_ENABLE_DMA_INSTANCE,
+        .channel = HAL_NRF_RX_UART_ENABLE_DMA_CHANNEL,
         .tc = NULL,
         .peripheral_address = (uintptr_t)HAL_USART_DMA_TX_CHANNEL_BASE,
         .memory_address = (uintptr_t)&nrf_rx_dma_uart4_tx_enable_cfg,
@@ -1172,7 +1192,7 @@ void hal_radio_rx_config(void)
 
     dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_enable_cfg);
     dma_channel_enable(tim1_nrf_rx_dma_uart4_tx_enable_cfg.inst, tim1_nrf_rx_dma_uart4_tx_enable_cfg.channel, true);
-    dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_7);
+    dma_channel_link(HAL_NRF_RX_UART_ENABLE_DMA_INSTANCE, HAL_NRF_RX_UART_ENABLE_DMA_CHANNEL, HAL_NRF_RX_UART_ENABLE_DMA_REQUEST);
 #endif
 }
 
