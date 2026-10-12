@@ -49,8 +49,6 @@ extern "C" {
 do { \
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##port##EN;   \
     while(!(RCC->AHB2ENR & RCC_AHB2ENR_GPIO##port##EN)); \
-    GPIO##port->MODER &= ~GPIO_MODER_MODE##pin; \
-    GPIO##port->MODER |= mode << GPIO_MODER_MODE##pin##_Pos; \
     GPIO##port->OTYPER &= ~(GPIO_OTYPER_OT##pin); \
     GPIO##port->OTYPER |= otype << GPIO_OTYPER_OT##pin##_Pos; \
     GPIO##port->OSPEEDR &= ~(GPIO_OSPEEDR_OSPEED##pin); \
@@ -60,6 +58,8 @@ do { \
     if ((mode) == GPIO_MODE_AF) { \
         GPIO##port->AFR[(pin) / 8U] &= ~(GPIO_AFRL_AFSEL0_Msk << (((pin) % 8U) * (GPIO_AFRL_AFSEL1_Pos - GPIO_AFRL_AFSEL0_Pos))); \
         GPIO##port->AFR[(pin) / 8U] |=  ((af) << (((pin) % 8U) * (GPIO_AFRL_AFSEL1_Pos - GPIO_AFRL_AFSEL0_Pos))); } \
+    GPIO##port->MODER &= ~GPIO_MODER_MODE##pin; \
+    GPIO##port->MODER |= mode << GPIO_MODER_MODE##pin##_Pos; \
 } while (0) 
 
 #define GPIO_SET_IMPL(port, pin, state) \
