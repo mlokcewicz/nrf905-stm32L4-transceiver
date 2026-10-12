@@ -6,7 +6,7 @@ set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/hal/platforms/${HW_VERSION}/toolcha
 # project configuration
 project("nrf905_stm32l4_transceiver" C CXX ASM)
 
-# global headers (FreeRTOSConfig.h)
+# global headers
 include_directories(app)
 
 # Configurable radio settings (override with -DNAME=value)

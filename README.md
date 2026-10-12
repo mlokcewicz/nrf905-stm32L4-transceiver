@@ -6,7 +6,7 @@ A 433 MHz radio transceiver based on the nRF905 and STM32L476, using timers and 
 
 * One code base for transmitter and receiver
 * Pure hardware-driven architecture for receiver (no main loop nor interrupts)
-* Custom, fixed size framre structure
+* Custom, fixed size frame structure
 * Communication with PC over UART
 * Bare metal architecture, no OS, based on custom low level peripheral drivers
 * Timers and DMA handle the entire RX data path without CPU involvement
