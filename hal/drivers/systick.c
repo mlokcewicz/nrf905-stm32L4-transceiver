@@ -54,7 +54,7 @@ uint32_t systick_get_ms(void)
 
 bool systick_timeout_elapsed(uint32_t base_ms, uint32_t timeout_ms)
 {
-    return base_ms + timeout_ms < systick_get_ms(); 
+    return systick_get_ms() - base_ms >= timeout_ms;
 }
 
 void systick_delay(uint32_t ms)
