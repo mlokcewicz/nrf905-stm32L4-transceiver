@@ -16,7 +16,7 @@
 //------------------------------------------------------------------------------
 
 /// @brief Initializes system clocks, SysTick, watchdog, LED, UART4, SPI and the enabled nRF905 radios
-/// @note Configures the system clock to 40 MHz and UART4 to 115200 baud; prints radio diagnostics
+/// @note Configures MSI at 2 MHz and UART4 at 115200 baud using HSI16; prints radio diagnostics
 /// @note Starts the watchdog with a nominal 32.768 s timeout; initialization failure does not stop it
 /// @return true if USART, SPI and radio initialization succeeds, otherwise false
 bool hal_init(void);
@@ -34,8 +34,10 @@ void hal_wdg_feed(void);
 /// @param ms Delay duration in milliseconds
 void hal_delay(uint32_t ms);
 
-/// @brief Waits for an interrupt using the CPU WFI instruction
-void hal_wfi(void);
+/// @brief Enters Low-power sleep until an interrupt becomes pending
+/// @note Requires hal_init(); keeps the 2 MHz clock and peripheral DMA paths active
+/// @note Restores the main regulator before returning; SysTick can wake the CPU every millisecond
+void hal_sleep(void);
 
 /// @brief Blocks until UART4 DMA receives payload bytes
 /// @note Requires hal_init(), active interrupts and the RX DMA channel assigned to UART4

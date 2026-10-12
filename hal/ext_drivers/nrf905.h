@@ -132,25 +132,41 @@ struct nrf905_obj
     nrf905_spi_transmit_cb spi_transmit_cb;
     nrf905_pin_set_cb pin_set_cb;
     nrf905_pin_get_cb pin_get_cb;
+
+    uint8_t config_tx[10 + 1];
+    uint8_t config_rx[10 + 1];
+    uint8_t status;
+    uint8_t tx_addr[4 + 1];
+    uint8_t tx_payload[32 + 1];
+    uint8_t rx_payload[32 + 1];
 };
 
 //------------------------------------------------------------------------------
 
-/// @brief Initializes GPIO, enters power-down mode and writes and verifies all 10 configuration bytes
-/// @note All callbacks are required; configuration field ranges are not validated
-/// @note Leaves the radio in power-down mode
-/// @param obj Object receiving the configured callbacks
-/// @param cfg Configuration and platform callbacks
-/// @return true if initialization and register readback succeed, otherwise false
+/// @brief Initializes callbacks and GPIO, enters power-down and starts writing configuration
+/// @note Does not verify readback. Caller waits, reads configuration and compares it.
+/// @note Configuration field ranges are not validated; all callbacks are required.
+/// @return true if setup succeeds and the SPI callback accepts the write
 bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg);
 
-/// @brief Reads the radio status through a one-byte SPI transaction
-/// @param obj Initialized radio object
-/// @param status Output status flags; unchanged if the operation fails
-/// @return true if the status was read, false for NULL arguments or SPI failure
-bool nrf905_get_status(struct nrf905_obj *obj, enum nrf905_status *status);
+/// @brief Starts reading all 10 configuration bytes
+/// @param data Receives a pointer to object-owned configuration bytes, excluding SPI status
+/// @note Read the bytes only after SPI completion. Next configuration read overwrites them.
+/// @note The output pointer is set before calling SPI, even if the callback rejects the transfer.
+/// @return The SPI callback result; false for invalid arguments
+bool nrf905_get_config(struct nrf905_obj *obj, uint8_t **data);
 
-/// @brief Writes PWR, CE and TXE pin levels encoded by mode, in that order
+/// @brief Starts reading the raw radio status byte
+/// @param data Receives a pointer to the object-owned raw status byte
+/// @note Wait for SPI completion before parsing; next status read overwrites the byte.
+/// @note The output pointer is set before calling SPI, even if the callback rejects the transfer.
+/// @return The SPI callback result; false for invalid arguments
+bool nrf905_get_status(struct nrf905_obj *obj, uint8_t **data);
+
+/// @brief Decodes AM and DR flags from a completed raw status byte without SPI access
+enum nrf905_status nrf905_parse_status(uint8_t raw);
+
+/// @brief Lowers CE, sets PWR and TXE, then raises CE if the mode requires it
 /// @param obj Initialized radio object
 /// @param mode Requested operating mode
 /// @return false for NULL obj or mode above the highest enum value, otherwise true
@@ -160,23 +176,23 @@ bool nrf905_set_mode(struct nrf905_obj *obj, enum nrf905_mode mode);
 /// @note Does not start radio transmission; call with the radio in standby or power-down mode
 /// @param obj Initialized radio object
 /// @param addr Destination address, intended to be stored least-significant byte first
-/// @return true if both SPI writes succeed, false for invalid arguments or SPI failure
+/// @return true if the SPI callback accepts the write, false otherwise
 bool nrf905_set_tx_addr(struct nrf905_obj *obj, uint32_t addr);
 
-/// @brief Writes a zero-padded 32-byte TX payload buffer
+/// @brief Starts writing len payload bytes to the TX payload register
 /// @note Does not start radio transmission; call with the radio in standby or power-down mode
 /// @param obj Initialized radio object
 /// @param payload Buffer containing len payload bytes
-/// @param len Number of bytes to copy, from 1 to 32; remaining buffer bytes are zeroed
-/// @return true if both SPI writes succeed, false for invalid arguments or SPI failure
+/// @param len Number of bytes to copy and transmit, from 1 to 32
+/// @return true if the SPI callback accepts the write, false otherwise
 bool nrf905_set_tx_data(struct nrf905_obj *obj, const uint8_t *payload, uint8_t len);
 
-/// @brief Reads size bytes from the beginning of the RX payload register
-/// @param obj Initialized radio object
-/// @param data Destination buffer with space for size bytes
-/// @param size Number of bytes to read, from 1 to 32
-/// @return true if the SPI read succeeds, false for invalid arguments or SPI failure
-bool nrf905_get_rx_data(struct nrf905_obj *obj, uint8_t *data, uint8_t size);
+/// @brief Starts reading the full 32-byte RX payload without copying to caller memory
+/// @param data Receives a pointer to object-owned payload bytes, excluding SPI status
+/// @note Wait for SPI completion before reading; next RX payload read overwrites the buffer.
+/// @note The output pointer is set before calling SPI, even if the callback rejects the transfer.
+/// @return The SPI callback result; false for invalid arguments
+bool nrf905_get_rx_data(struct nrf905_obj *obj, uint8_t **data);
 
 //------------------------------------------------------------------------------
 
