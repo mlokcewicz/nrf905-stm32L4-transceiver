@@ -143,8 +143,19 @@ bool dma_channel_config(const struct dma_channel_cfg *cfg)
         NVIC_DisableIRQ(irq[cfg->inst][cfg->channel]);
     }
 
-    base->CCR |= DMA_CCR_EN;
-    
+    return true;
+}
+
+bool dma_channel_enable(enum dma_instance inst, enum dma_channel channel, bool enable)
+{
+    if ((uint32_t)inst > DMA_INSTANCE_2 || (uint32_t)channel > DMA_CHANNEL_7)
+        return false;
+
+    DMA_Channel_TypeDef *base = ctx[inst][channel].channel_base;
+
+    base->CCR &= ~DMA_CCR_EN;
+    base->CCR |= (uint32_t)enable << DMA_CCR_EN_Pos;
+
     return true;
 }
 

@@ -95,10 +95,17 @@ struct dma_channel_cfg
 /// @param inst DMA controller
 void dma_init(enum dma_instance inst);
 
-/// @brief Configures and enables the selected DMA channel
+/// @brief Configures the selected DMA channel and leaves it disabled
 /// @param cfg Channel configuration; count is 1 to 65535 data items, not bytes
 /// @return false for invalid configuration, otherwise true
 bool dma_channel_config(const struct dma_channel_cfg *cfg);
+
+/// @brief Enables or disables the selected DMA channel
+/// @param inst DMA controller
+/// @param channel DMA channel
+/// @param enable true to enable, false to disable
+/// @return false for invalid arguments, otherwise true
+bool dma_channel_enable(enum dma_instance inst, enum dma_channel channel, bool enable);
 
 /// @brief Selects the peripheral request for a disabled DMA channel through CSELR
 /// @param inst DMA controller

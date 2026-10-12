@@ -325,6 +325,7 @@ static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t l
         };
 
         dma_channel_config(&rx_cfg);
+        dma_channel_enable(rx_cfg.inst, rx_cfg.channel, true);
     }
     else
     {
@@ -347,6 +348,7 @@ static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t l
         };
 
         dma_channel_config(&tx_cfg);
+        dma_channel_enable(tx_cfg.inst, tx_cfg.channel, true);
     }
 }
 
@@ -433,7 +435,9 @@ static void spi1_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t 
     };
 
     dma_channel_config(&rx_cfg);
+    dma_channel_enable(rx_cfg.inst, rx_cfg.channel, true);
     dma_channel_config(&tx_cfg);
+    dma_channel_enable(tx_cfg.inst, tx_cfg.channel, true);
 }
 #endif
 
@@ -486,6 +490,8 @@ static void spi2_dma_config_internal(uintptr_t periph_address, uint8_t *data_rx,
 static void spi2_dma_config(uintptr_t periph_address, uint8_t *data_rx, uint8_t *data_tx, uint32_t len)
 {
     spi2_dma_config_internal(periph_address, data_rx, data_tx, len, false, false, spi2_dma_rx_tc, spi2_dma_tx_tc);
+    dma_channel_enable(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_RX_CHANNEL, true);
+    dma_channel_enable(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_TX_CHANNEL, true);
 }
 #endif
 
@@ -869,6 +875,7 @@ bool hal_init(void)
     return true;
 }
 
+/* According to the application-specific timer configuration, there is direct register acces used for TIM instead of generic driver */
 void hal_radio_tx_config(void)
 {
 #if CONFIG_TRANSMITTER_EN
@@ -901,6 +908,7 @@ void hal_radio_tx_config(void)
         .memory_to_memory = false,
     };
     dma_channel_config(&tx_stop_cfg);
+    dma_channel_enable(tx_stop_cfg.inst, tx_stop_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_1, DMA_REQUEST_6);
 
     TIM4->CCER |= TIM_CCER_CC1E;
@@ -909,25 +917,18 @@ void hal_radio_tx_config(void)
 #endif
 }
 
-void hal_radio_rx_config(void) // TODO: Remove direct register access
+/* According to the application-specific timer configuration, there is direct register acces used for TIM instead of generic driver */
+void hal_radio_rx_config(void) 
 {
 #if CONFIG_RECEIVER_EN
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
 
-    /* Prepare SPI2 for RX when DR is high */
-    HAL_NRF_RX_SPI_BASE->CR1 &= ~SPI_CR1_SPE;
-    HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_RXDMAEN;
-    HAL_NRF_RX_SPI_BASE->CR2 &= ~SPI_CR2_TXDMAEN;
-    
+    dma_channel_enable(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_RX_CHANNEL, false);
+
     nrf_get_payload_request_data[0] = NRF905_INST_R_RX_PAYLOAD;
     spi2_dma_config_internal((uintptr_t)&HAL_NRF_RX_SPI_BASE->DR, nrf_get_payload_received_data, nrf_get_payload_request_data, HAL_RADIO_TX_PAYLOAD_SIZE + 1, true, false, NULL, NULL);
     
-    /* Disable DMA channel to prevent unwanted transfers on first DR signal*/
-    DMA1_Channel5->CCR &= ~DMA_CCR_EN;
-
-    /* Enable SPI DMA request gneration */
-    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_RXDMAEN;
-    HAL_NRF_RX_SPI_BASE->CR2 |= SPI_CR2_TXDMAEN;
+    dma_channel_enable(HAL_NRF_RX_SPI_DMA_INSTANCE, HAL_NRF_RX_SPI_DMA_RX_CHANNEL, true);
 
     /* Prepare TIM8 input capture DMA requet generation on NRF RX DR pin */
     RCC->APB2ENR |= RCC_APB2ENR_TIM8EN;
@@ -1004,6 +1005,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim8_spi_start_cfg);
+    dma_channel_enable(tim8_spi_start_cfg.inst, tim8_spi_start_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_7, DMA_REQUEST_7);
 
     /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
@@ -1030,6 +1032,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_rearm_cfg);
+    dma_channel_enable(tim8_nrf_rx_dma_spi_rx_rearm_cfg.inst, tim8_nrf_rx_dma_spi_rx_rearm_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_2, DMA_REQUEST_7);
 
     /* Configure DMA channel and request for enabling disabling SPI RX DMA on DR rising edge */
@@ -1055,6 +1058,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim8_nrf_rx_dma_spi_rx_enable_cfg);
+    dma_channel_enable(tim8_nrf_rx_dma_spi_rx_enable_cfg.inst, tim8_nrf_rx_dma_spi_rx_enable_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_2, DMA_CHANNEL_1, DMA_REQUEST_7);
 
     /* Route the shared radio DR signal to TIM1_CH1. */
@@ -1135,6 +1139,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_rearm_cfg);
+    dma_channel_enable(tim1_nrf_rx_dma_uart4_tx_rearm_cfg.inst, tim1_nrf_rx_dma_uart4_tx_rearm_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_7, DMA_REQUEST_7);
 
     /* Configure DMA channel and request for enabling disabling UART4 TX DMA on DR falling edge */
@@ -1160,6 +1165,7 @@ void hal_radio_rx_config(void) // TODO: Remove direct register access
     };
 
     dma_channel_config(&tim1_nrf_rx_dma_uart4_tx_enable_cfg);
+    dma_channel_enable(tim1_nrf_rx_dma_uart4_tx_enable_cfg.inst, tim1_nrf_rx_dma_uart4_tx_enable_cfg.channel, true);
     dma_channel_link(DMA_INSTANCE_1, DMA_CHANNEL_6, DMA_REQUEST_7);
 #endif
 }

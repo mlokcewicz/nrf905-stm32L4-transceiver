@@ -79,6 +79,12 @@ bool spi_init(struct spi_obj *obj, struct spi_cfg *cfg)
 
     base->CR2 |= SPI_CR2_FRXTH;
 
+    if (obj->dma_config)
+    {
+        base->CR2 |= SPI_CR2_RXDMAEN;
+        base->CR2 |= SPI_CR2_TXDMAEN;
+    }
+
     return true;
 }
 
@@ -92,10 +98,6 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
 
     if (obj->dma_config)
     {
-        base->CR1 &= ~SPI_CR1_SPE;
-        base->CR2 |= SPI_CR2_RXDMAEN;
-        base->CR2 |= SPI_CR2_TXDMAEN;
-
         obj->dma_config((uintptr_t)&base->DR, data_rx, data_tx, len);
 
         base->CR1 |= SPI_CR1_SPE;
@@ -134,8 +136,6 @@ void spi_transmit_finish(struct spi_obj *obj)
     while (base->SR & SPI_SR_BSY) {}
 
     base->CR1 &= ~SPI_CR1_SPE;
-    base->CR2 &= ~SPI_CR2_RXDMAEN;
-    base->CR2 &= ~SPI_CR2_TXDMAEN;
 }
 
 void spi_cs_set(struct spi_obj *obj, bool state)
