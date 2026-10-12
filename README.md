@@ -1,6 +1,6 @@
 # nRF905 STM32L4 Transceiver
 
-433 MHz radio transceiver based on nRF905 and STM32L476.
+A 433 MHz radio transceiver based on the nRF905 and STM32L476, using timers and DMA experimentally to handle the entire RX sequence in hardware without CPU involvement.
 
 ## Capabilities
 
@@ -59,6 +59,37 @@ Allocation for hardware version `v0.0.1`, with both transmitter and receiver ena
 
 With `CONFIG_TRANSMITTER_EN=OFF`, DMA1 Ch1–Ch3 and DMA2 Ch5 are unused. With `CONFIG_RECEIVER_EN=OFF`, DMA1 Ch4–Ch7 and DMA2 Ch1–Ch3/Ch7 are unused by the radio path. UART request selections are still assigned during initialization; a request selection alone does not enable a DMA channel.
 
+## NUCLEO-L476RG connections
+
+The `v0.0.1` configuration uses two nRF905 modules on one NUCLEO-L476RG: one for TX and one for RX. 
+
+### Radio modules
+
+| nRF905 signal | TX module: STM32 pin | Nucleo connector | RX module: STM32 pin | Nucleo connector |
+| --- | --- | --- | --- | --- |
+| SCK | PB3 (SPI1_SCK) | CN10 pin 31 | PB13 (SPI2_SCK) | CN10 pin 30 |
+| MISO | PA6 (SPI1_MISO) | CN10 pin 13 | PB14 (SPI2_MISO) | CN10 pin 28 |
+| MOSI | PA7 (SPI1_MOSI) | CN10 pin 15 | PB15 (SPI2_MOSI) | CN10 pin 26 |
+| CSN | PA4 (SPI1_NSS) | CN7 pin 32 | PB12 (SPI2_NSS) | CN10 pin 16 |
+| TX_EN | PC5 | CN10 pin 6 | PC1 | CN7 pin 36 |
+| PWR_UP | PA0 | CN7 pin 28 | PC2 | CN7 pin 35 |
+| TRX_CE | PC8 | CN10 pin 2 | PC0 | CN7 pin 38 |
+| DR | PB6 (TIM4_CH1) | CN10 pin 17 | PC6 (TIM8_CH1/CH2) and PA8 (TIM1_CH1) | CN10 pins 4 and 23 |
+| VCC | 3.3 V | CN7 pin 16 | 3.3 V | CN7 pin 16 |
+| GND | GND | CN7 pin 20 | GND | CN7 pin 20 |
+
+**Connect the RX module's single DR output to both PC6 and PA8.** These inputs trigger the SPI readout and UART forwarding respectively. 
+
+### USB-to-UART adapter
+
+Use a 3.3 V logic adapter with **115200 baud, 8 data bits, no parity, 1 stop bit, no flow control**.
+
+| Adapter signal | Nucleo signal | Nucleo connector |
+| --- | --- | --- |
+| RX | PC10 (UART4_TX) | CN7 pin 1 |
+| TX | PC11 (UART4_RX) | CN7 pin 2 |
+| GND | GND | CN7 pin 20 |
+
 ## Tools
 
 * CMake 3.20.0
@@ -95,7 +126,7 @@ Override them when configuring the project with `-DNAME=value`:
 | `CONFIG_RADIO_TX_POWER` | `NRF905_PA_PWR_10_DBM` | Power: `NRF905_PA_PWR_MINUS_10_DBM`, `NRF905_PA_PWR_MINUS_2_DBM`, `NRF905_PA_PWR_6_DBM` or `NRF905_PA_PWR_10_DBM` |
 
 ```sh
-cmake --preset v0.0.1_debug -DHAL_RADIO_CHANNEL=110 -DHAL_RADIO_RX_ADDRESS=0xAABBCCDDUL -DHAL_RADIO_TX_POWER=NRF905_PA_PWR_6_DBM
+cmake --preset v0.0.1_debug -DCONFIG_RADIO_CHANNEL=110 -DCONFIG_RADIO_RX_ADDRESS=0xAABBCCDDUL -DCONFIG_RADIO_TX_POWER=NRF905_PA_PWR_6_DBM
 cmake --build --preset v0.0.1_debug
 ```
 
