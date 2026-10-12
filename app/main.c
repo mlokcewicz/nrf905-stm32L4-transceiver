@@ -31,7 +31,7 @@ int main()
         
         hal_delay(500);
 
-        hal_wfi();
+        hal_sleep();
     }
 
     return 0;

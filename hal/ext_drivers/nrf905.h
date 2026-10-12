@@ -156,6 +156,12 @@ bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg);
 /// @return The SPI callback result; false for invalid arguments
 bool nrf905_get_config(struct nrf905_obj *obj, uint8_t **data);
 
+/// @brief Compares configuration readback with the encoded settings without SPI access
+/// @param cfg Expected settings; callback fields are ignored
+/// @param data Ten completed configuration bytes returned by nrf905_get_config
+/// @return true if all bytes match, false for NULL arguments or a mismatch
+bool nrf905_config_validate(const struct nrf905_cfg *cfg, const uint8_t *data);
+
 /// @brief Starts reading the raw radio status byte
 /// @param data Receives a pointer to the object-owned raw status byte
 /// @note Wait for SPI completion before parsing; next status read overwrites the byte.

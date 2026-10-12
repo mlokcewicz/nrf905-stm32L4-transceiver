@@ -128,6 +128,11 @@ uint8_t spi_transmit(struct spi_obj *obj, uint8_t *data_rx, uint8_t *data_tx, ui
 void spi_transmit_finish(struct spi_obj *obj)
 {
     SPI_TypeDef *base = spi_base[obj->inst];
+
+    /* TODO: Add timeout and consider removing that since it can be called in ISR */
+    while (base->SR & SPI_SR_FTLVL) {}
+    while (base->SR & SPI_SR_BSY) {}
+
     base->CR1 &= ~SPI_CR1_SPE;
     base->CR2 &= ~SPI_CR2_RXDMAEN;
     base->CR2 &= ~SPI_CR2_TXDMAEN;

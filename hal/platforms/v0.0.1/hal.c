@@ -77,14 +77,14 @@
 
 /* Clock tree and watchdog */
 #define HAL_IRQ_PRIORITY_GROUPING           0x00000003U
-#define HAL_VOLTAGE_SCALING                 PWR_VOLTAGE_SCALING_RANGE1
-#define HAL_FLASH_LATENCY                   FLASH_ACR_LATENCY_2WS
+#define HAL_VOLTAGE_SCALING                 PWR_VOLTAGE_SCALING_RANGE2
+#define HAL_FLASH_LATENCY                   FLASH_ACR_LATENCY_0WS
 #define HAL_WDG_PRESCALER                   IWDG_PRESCALER_256
 #define HAL_WDG_RELOAD                      0x0FFFu
 #define HAL_LSI_ON                          true
 #define HAL_HSI_ON                          true
 #define HAL_HSE_ON                          false
-#define HAL_PLL_ON                          true
+#define HAL_PLL_ON                          false
 #define HAL_PLL_M                           RCC_PLLM_DIV2
 #define HAL_PLL_N                           10
 #define HAL_PLL_R                           RCC_PLLR_DIV2
@@ -93,7 +93,7 @@
 #define HAL_AHB_PRESCALER                   RCC_CFGR_HPRE_DIV1
 #define HAL_APB1_PRESCALER                  RCC_CFGR_PPRE1_DIV1
 #define HAL_APB2_PRESCALER                  RCC_CFGR_PPRE2_DIV1
-#define HAL_SYSCLK_SOURCE                   RCC_CFGR_SW_PLL
+#define HAL_SYSCLK_SOURCE                   RCC_CFGR_SW_MSI
 
 /* USART configuration */
 #define HAL_UART_INSTANCE                   USART_INSTANCE_4
@@ -541,7 +541,7 @@ static bool nrf905_tx_spi_transmit_cb(uint8_t *data_tx, uint8_t *data_rx, uint32
     spi_transmit(&spi1_obj, data_rx, data_tx, len);
 
     if (nrf905_tx_state != HAL_TX_IDLE)
-        return true; 
+        return true;
 
     while (!spi1_dma_rx_done || !spi1_dma_tx_done) {}
 
@@ -766,6 +766,18 @@ bool hal_init(void)
         printf("nRF905 TX init failed!\n");   
         return false;
     }
+
+    uint8_t *tx_config_read = NULL;
+
+    if (!nrf905_get_config(&nrf905_tx_obj, &tx_config_read))
+        return false;
+
+    if (!nrf905_config_validate(&nrf905_tx_cfg, tx_config_read))
+    {
+        printf("nRF905 TX configuration readback failed!\n");
+        return false;
+    }
+
 #endif
 
 #if CONFIG_RECEIVER_EN
@@ -816,6 +828,18 @@ bool hal_init(void)
         printf("nRF905 RX init failed!\n");
         return false;
     }
+
+    uint8_t *rx_config_read = NULL;
+
+    if (!nrf905_get_config(&nrf905_rx_obj, &rx_config_read))
+        return false;
+
+    if (!nrf905_config_validate(&nrf905_rx_cfg, rx_config_read))
+    {
+        printf("nRF905 RX configuration readback failed!\n");
+        return false;
+    }
+
 #endif
 
     return true;

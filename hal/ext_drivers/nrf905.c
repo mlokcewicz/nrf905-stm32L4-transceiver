@@ -16,6 +16,22 @@
 
 //------------------------------------------------------------------------------
 
+static void nrf905_config_encode(const struct nrf905_cfg *cfg, uint8_t *data)
+{
+    data[0] = cfg->ch_no & 0b11111111;
+    data[1] = (cfg->auto_retran << 5) | (cfg->rx_red_pwr << 4) | ((cfg->pa_pwr & 0b11) << 2) | ((cfg->pll_freq & 0b1) << 1) | ((cfg->ch_no >> 8) & 0b1);
+    data[2] = ((cfg->tx_afw & 0b111) << 4) | (cfg->rx_afw & 0b111);
+    data[3] = cfg->rx_pw & 0b00111111;
+    data[4] = cfg->tx_pw & 0b00111111;
+    data[5] = cfg->rx_addr & 0x000000FF;
+    data[6] = (cfg->rx_addr & 0x0000FF00) >> 8;
+    data[7] = (cfg->rx_addr & 0x00FF0000) >> 16;
+    data[8] = (cfg->rx_addr & 0xFF000000) >> 24;
+    data[9] = (cfg->crc_16 << 7) | (cfg->crc_en << 6) | ((cfg->xof & 0b111) << 3) | (cfg->up_clk_en << 2) | (cfg->up_clk_freq & 0b11);
+}
+
+//------------------------------------------------------------------------------
+
 bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg)
 {
     if (!obj || !cfg || !cfg->io_init_cb || !cfg->spi_transmit_cb ||
@@ -35,16 +51,8 @@ bool nrf905_init(struct nrf905_obj *obj, struct nrf905_cfg *cfg)
 
     memset(obj->config_tx, 0, sizeof(obj->config_tx));
     obj->config_tx[0] = NRF905_INST_W_CONFIG | 0; /* Write config from byte 0 */
-    obj->config_tx[1] = cfg->ch_no & 0b11111111;
-    obj->config_tx[2] = (cfg->auto_retran << 5) | (cfg->rx_red_pwr << 4) | ((cfg->pa_pwr & 0b11) << 2) | ((cfg->pll_freq & 0b1) << 1) | ((cfg->ch_no >> 8) & 0b1);
-    obj->config_tx[3] = ((cfg->tx_afw & 0b111) << 4) | (cfg->rx_afw & 0b111);
-    obj->config_tx[4] = cfg->rx_pw & 0b00111111;
-    obj->config_tx[5] = cfg->tx_pw & 0b00111111;
-    obj->config_tx[6] = cfg->rx_addr & 0x000000FF;
-    obj->config_tx[7] = (cfg->rx_addr & 0x0000FF00) >> 8;
-    obj->config_tx[8] = (cfg->rx_addr & 0x00FF0000) >> 16;
-    obj->config_tx[9] = (cfg->rx_addr & 0xFF000000) >> 24;
-    obj->config_tx[10] = (cfg->crc_16 << 7) | (cfg->crc_en << 6) | ((cfg->xof & 0b111) << 3) | (cfg->up_clk_en << 2) | (cfg->up_clk_freq & 0b11);
+    
+    nrf905_config_encode(cfg, obj->config_tx + 1);
 
     return obj->spi_transmit_cb(obj->config_tx, NULL, sizeof(obj->config_tx));
 }
@@ -58,6 +66,18 @@ bool nrf905_get_config(struct nrf905_obj *obj, uint8_t **data)
     obj->config_rx[0] = NRF905_INST_R_CONFIG;
     *data = obj->config_rx + 1;
     return obj->spi_transmit_cb(obj->config_rx, obj->config_rx, sizeof(obj->config_rx));
+}
+
+bool nrf905_config_validate(const struct nrf905_cfg *cfg, const uint8_t *data)
+{
+    if (!cfg || !data)
+        return false;
+
+    uint8_t expected[10];
+
+    nrf905_config_encode(cfg, expected);
+    
+    return memcmp(expected, data, sizeof(expected)) == 0;
 }
 
 bool nrf905_get_status(struct nrf905_obj *obj, uint8_t **data)
