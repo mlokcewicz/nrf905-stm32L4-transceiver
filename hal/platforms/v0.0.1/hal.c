@@ -137,7 +137,6 @@
 #define HAL_USART_DMA_TX_CHANNEL            DMA_CHANNEL_3
 #define HAL_USART_DMA_REQUEST               DMA_REQUEST_2
 
-
 /* Shared radio configuration */
 #define HAL_RADIO_RX_REDUCED_POWER          false
 #define HAL_RADIO_AUTO_RETRANSMIT           false
@@ -177,7 +176,6 @@ static volatile bool uart4_rx_done;
 #if CONFIG_TRANSMITTER_EN
 static struct spi_obj spi1_obj = {0};
 static struct nrf905_obj nrf905_tx_obj;
-static uint32_t nrf_tx_stop_mask = (1UL << (HAL_NRF_TX_CE_PIN + 16)) | (1UL << (HAL_NRF_TX_TXE_PIN + 16));
 static volatile bool spi1_dma_rx_done;
 static volatile bool spi1_dma_tx_done;
 static uint8_t uart4_rx_payload[HAL_RADIO_RX_PAYLOAD_SIZE];
@@ -879,7 +877,7 @@ bool hal_init(void)
     return true;
 }
 
-/* According to the application-specific timer configuration, there is direct register acces used for TIM instead of generic driver */
+/* According to the application-specific peripheral configuration, there is direct register acces used for TIM and GPIO instead of generic driver */
 void hal_radio_tx_config(void)
 {
 #if CONFIG_TRANSMITTER_EN
@@ -892,6 +890,8 @@ void hal_radio_tx_config(void)
     TIM4->CCER &= ~TIM_CCER_CC1P; // Rising DR edge
     TIM4->CCER &= ~TIM_CCER_CC1NP;
     TIM4->SR = 0;
+
+    static uint32_t nrf_tx_stop_mask = (1UL << (HAL_NRF_TX_CE_PIN + 16)) | (1UL << (HAL_NRF_TX_TXE_PIN + 16));
 
     dma_init(DMA_INSTANCE_1);
     struct dma_channel_cfg tx_stop_cfg =
@@ -921,7 +921,7 @@ void hal_radio_tx_config(void)
 #endif
 }
 
-/* According to the application-specific timer configuration, there is direct register acces used for TIM instead of generic driver */
+/* According to the application-specific peripheral configuration, there is direct register acces used for TIM and DMA instead of generic driver */
 void hal_radio_rx_config(void) 
 {
 #if CONFIG_RECEIVER_EN
