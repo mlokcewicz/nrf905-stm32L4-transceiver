@@ -81,6 +81,9 @@
 #define HAL_FLASH_LATENCY                   FLASH_ACR_LATENCY_0WS
 #define HAL_WDG_PRESCALER                   IWDG_PRESCALER_256
 #define HAL_WDG_RELOAD                      0x0FFFu
+#define HAL_MSI_ON                          true
+#define HAL_MSI_RANGE                       RCC_CR_MSIRANGE_5
+#define HAL_MSI_STANDBY_RANGE               RCC_CSR_MSISRANGE_2
 #define HAL_LSI_ON                          true
 #define HAL_HSI_ON                          true
 #define HAL_HSE_ON                          false
@@ -638,16 +641,13 @@ bool hal_init(void)
     
     SystemInit();
 
-    /* Set voltage scalling range */
-    pwr_init(HAL_VOLTAGE_SCALING);
-
-    /* Vcore range 1, HCLK <= 48 MHz */
-    flash_init(HAL_FLASH_LATENCY);
-
-    /* SYSCLK = HCLK = PCLK1 = PCLK2 = 40 MHz, HSI on, LS on */
+    /* SYSCLK = HCLK = PCLK1 = PCLK2 = 2 MHz; HSI16 for UART, LSI for IWDG. */
     struct rcc_config cfg = 
     {
         .lsi_on = HAL_LSI_ON,
+        .msi_on = HAL_MSI_ON,
+        .msi_range = HAL_MSI_RANGE,
+        .msi_standby_range = HAL_MSI_STANDBY_RANGE,
         .hsi_on = HAL_HSI_ON,
         .hse_on = HAL_HSE_ON,
         .pll.main_pll_on = HAL_PLL_ON,
@@ -662,7 +662,14 @@ bool hal_init(void)
         .sysclk_source = HAL_SYSCLK_SOURCE,
     };
 
+    /* Lower the clock before reducing regulator voltage and Flash latency. */
     rcc_init(&cfg);
+
+    /* Set voltage scaling range. */
+    pwr_voltage_scaling_set(HAL_VOLTAGE_SCALING);
+
+    /* Vcore range 2, MSI at 2 MHz. */
+    flash_set_latency(HAL_FLASH_LATENCY);
 
     SystemCoreClockUpdate();
 
@@ -1224,9 +1231,9 @@ void hal_delay(uint32_t ms)
     systick_delay(ms);
 }
 
-void hal_wfi(void)
+void hal_sleep(void)
 {
-    __WFI();
+    pwr_sleep_enter(true, false);
 }
 
 //------------------------------------------------------------------------------

@@ -36,7 +36,7 @@ void hal_delay(uint32_t ms);
 
 /// @brief Enters Low-power sleep until an interrupt becomes pending
 /// @note Requires hal_init(); keeps the 2 MHz clock and peripheral DMA paths active
-/// @note Restores the main regulator before returning; SysTick can wake the CPU every millisecond
+/// @note Returns to Low-power run; SysTick can wake the CPU every millisecond
 void hal_sleep(void);
 
 /// @brief Blocks until UART4 DMA receives payload bytes

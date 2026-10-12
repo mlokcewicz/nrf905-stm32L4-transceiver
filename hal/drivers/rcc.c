@@ -10,7 +10,29 @@
 //------------------------------------------------------------------------------
 
 void rcc_init(struct rcc_config *cfg)
-{   
+{
+    /* Keep SYSCLK on MSI while reconfiguring the main PLL and its sources.
+     * Do not change MSI frequency until the PLL is stopped: it may use MSI. */
+    RCC->CR |= RCC_CR_MSION;
+    while (!(RCC->CR & RCC_CR_MSIRDY)) {}
+
+    RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_MSI;
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_MSI) {}
+    
+    RCC->CR &= ~RCC_CR_PLLON;
+    while (RCC->CR & RCC_CR_PLLRDY) {}
+
+    /* MSI range; MSI remains enabled until the final SYSCLK switch. */
+    if (cfg->msi_on)
+    {
+        RCC->CR = (RCC->CR & ~RCC_CR_MSIRANGE) | RCC_CR_MSIRGSEL | (cfg->msi_range & RCC_CR_MSIRANGE);
+        while (!(RCC->CR & RCC_CR_MSIRDY)) {}
+
+        /* MSI range after Standby; writable only with MSIRGSEL set. */
+        RCC->CSR &= ~RCC_CSR_MSISRANGE;
+        RCC->CSR |= cfg->msi_standby_range & RCC_CSR_MSISRANGE;
+    }
+
     /* LSI on / off */
     RCC->CSR &= ~RCC_CSR_LSION;
     RCC->CSR |= cfg->lsi_on << RCC_CSR_LSION_Pos;
@@ -41,9 +63,6 @@ void rcc_init(struct rcc_config *cfg)
     RCC->CFGR &= ~RCC_CFGR_PPRE2;
     RCC->CFGR |= cfg->apb2_presc << RCC_CFGR_PPRE2_Pos;
 
-    /* Main PLL config */
-    RCC->CR &= ~RCC_CR_PLLON;
-
     /* PLLR */
     RCC->PLLCFGR &= ~RCC_PLLCFGR_PLLR;
     RCC->PLLCFGR |= cfg->pll.pllr << RCC_PLLCFGR_PLLR_Pos;
@@ -73,6 +92,13 @@ void rcc_init(struct rcc_config *cfg)
     RCC->CFGR |= cfg->sysclk_source << RCC_CFGR_SW_Pos;
 
     while ((RCC->CFGR & RCC_CFGR_SWS) != ((uint32_t)cfg->sysclk_source << RCC_CFGR_SWS_Pos)) {}
+
+    if (!cfg->msi_on)
+    {
+        RCC->CR &= ~RCC_CR_MSION;
+        while (RCC->CR & RCC_CR_MSIRDY) {}
+    }
+}
 }
 
 //------------------------------------------------------------------------------
