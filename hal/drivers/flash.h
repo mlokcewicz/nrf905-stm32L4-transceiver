@@ -24,7 +24,7 @@ extern "C" {
 /// @note Increase latency before increasing HCLK; decrease it after decreasing HCLK
 /// @note Select latency according to HCLK and the voltage range; waits for readback without a timeout
 /// @param latency Flash latency value from FLASH_ACR_LATENCY_0WS through FLASH_ACR_LATENCY_4WS
-void flash_init(uint32_t latency);
+void flash_set_latency(uint32_t latency);
 
 //------------------------------------------------------------------------------
 
