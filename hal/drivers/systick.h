@@ -19,12 +19,14 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
-/// @brief Initializes SysTick to generate an interrupt every millisecond
+/// @brief Initializes SysTick with the requested interrupt period
+/// @note Reinitialization discards the partially counted tick and preserves the millisecond counter
+/// @param ms_per_tick Interrupt period in milliseconds
 /// @return 0 if initialized successfully, 1 if the reload value is invalid
-uint32_t systick_init(void);
+uint32_t systick_init(uint32_t ms_per_tick);
 
 /// @brief Returns the current SysTick millisecond counter value
-/// @return Elapsed time in milliseconds
+/// @return Milliseconds accumulated from completed ticks
 uint32_t systick_get_ms(void);
 
 /// @brief Checks whether the current millisecond count is greater than the timeout deadline

@@ -26,11 +26,9 @@ int main()
     
     while (1)
     {
-        hal_led_toggle();
+        hal_led_blink();
         hal_wdg_feed();
         
-        hal_delay(500);
-
         hal_sleep();
     }
 

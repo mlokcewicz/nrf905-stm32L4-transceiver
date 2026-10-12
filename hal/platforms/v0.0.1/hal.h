@@ -21,9 +21,9 @@
 /// @return true if USART, SPI and radio initialization succeeds, otherwise false
 bool hal_init(void);
 
-/// @brief Toggles the LED output on PA5
+/// @brief Turns the LED on PA5 on for 200 ms, then turns it off
 /// @note Requires GPIO initialization by hal_init()
-void hal_led_toggle(void);
+void hal_led_blink(void);
 
 /// @brief Reloads the independent watchdog counter
 /// @note Call periodically after hal_init(), before the watchdog timeout expires
@@ -36,7 +36,8 @@ void hal_delay(uint32_t ms);
 
 /// @brief Enters Low-power sleep until an interrupt becomes pending
 /// @note Requires hal_init(); keeps the 2 MHz clock and peripheral DMA paths active
-/// @note Returns to Low-power run; SysTick can wake the CPU every millisecond
+/// @note Uses a 5000 ms SysTick period during sleep and restores 1 ms after any wakeup
+/// @note Partial SysTick periods are discarded when switching the period
 void hal_sleep(void);
 
 /// @brief Blocks until UART4 DMA receives payload bytes

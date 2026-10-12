@@ -11,25 +11,34 @@
 
 //------------------------------------------------------------------------------
 
-#define SYSTICK_MS_PER_TICK 1 /* 1 kHz */
-
 #define SYSTICK_PREEMPT_PRIO 15
 #define SYSTICK_SUB_PRIO 0
 
 //------------------------------------------------------------------------------
 
-extern uint32_t SystemCoreClock;
-static volatile uint32_t current_ms;
+struct systick_ctx
+{
+    volatile uint32_t current_ms;
+    uint32_t ms_per_tick;
+};
 
 //------------------------------------------------------------------------------
 
-uint32_t systick_init(void)
+extern uint32_t SystemCoreClock;
+
+static struct systick_ctx ctx;
+
+//------------------------------------------------------------------------------
+
+uint32_t systick_init(uint32_t ms_per_tick)
 {
     uint32_t ret = 0;
     
-    ret = SysTick_Config(SystemCoreClock / (1000U / (uint32_t)SYSTICK_MS_PER_TICK));
+    ret = SysTick_Config(SystemCoreClock / 1000U * ms_per_tick);
     if (ret != 0)
         return ret;
+
+    ctx.ms_per_tick = ms_per_tick;
 
     uint32_t prioritygroup = NVIC_GetPriorityGrouping();
 
@@ -40,7 +49,7 @@ uint32_t systick_init(void)
 
 uint32_t systick_get_ms(void)
 {
-    return current_ms;
+    return ctx.current_ms;
 }
 
 bool systick_timeout_elapsed(uint32_t base_ms, uint32_t timeout_ms)
@@ -62,7 +71,7 @@ void systick_delay(uint32_t ms)
 
 void SysTick_Handler(void)
 {
-    current_ms += SYSTICK_MS_PER_TICK;
+    ctx.current_ms += ctx.ms_per_tick;
 }
 
 //------------------------------------------------------------------------------

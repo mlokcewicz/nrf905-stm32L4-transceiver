@@ -81,6 +81,7 @@
 #define HAL_FLASH_LATENCY                   FLASH_ACR_LATENCY_0WS
 #define HAL_WDG_PRESCALER                   IWDG_PRESCALER_256
 #define HAL_WDG_RELOAD                      0x0FFFu
+#define HAL_SLEEP_TIME_MS                   5000
 #define HAL_MSI_ON                          true
 #define HAL_MSI_RANGE                       RCC_CR_MSIRANGE_5
 #define HAL_MSI_STANDBY_RANGE               RCC_CSR_MSISRANGE_2
@@ -674,7 +675,7 @@ bool hal_init(void)
 
     SystemCoreClockUpdate();
 
-    systick_init();
+    systick_init(1);
 
     /* Maximum IWDG timeout: 32.768 s at nominal LSI = 32 kHz. */
     wdg_init(HAL_WDG_PRESCALER, HAL_WDG_RELOAD);
@@ -1232,9 +1233,11 @@ void hal_uart_rx_start(void)
 #endif
 }
 
-void hal_led_toggle(void)
+void hal_led_blink(void)
 {
-    GPIO_TOGGLE(HAL_LED_PORT, HAL_LED_PIN);
+    GPIO_SET(HAL_LED_PORT, HAL_LED_PIN, true);
+    hal_delay(200);
+    GPIO_SET(HAL_LED_PORT, HAL_LED_PIN, false);
 }
 
 void hal_wdg_feed(void)
@@ -1249,7 +1252,11 @@ void hal_delay(uint32_t ms)
 
 void hal_sleep(void)
 {
+    systick_init(HAL_SLEEP_TIME_MS);
+
     pwr_sleep_enter(true, false);
+    
+    systick_init(1);
 }
 
 //------------------------------------------------------------------------------
