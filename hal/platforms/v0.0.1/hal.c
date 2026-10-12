@@ -1167,14 +1167,14 @@ void hal_radio_loopback_test(void)
     
     systick_delay(HAL_RADIO_TEST_DELAY_MS);
     
-    enum nrf905_status status2 = 0;
-    nrf905_get_status(&nrf905_rx_obj, &status2);
+    uint8_t *status_raw;
+    nrf905_get_status(&nrf905_rx_obj, &status_raw);
+    enum nrf905_status status2 = nrf905_parse_status(*status_raw);
     printf("Got status: AM: %d, DR: %d on %p\n", !!(status2 & NRF905_STATUS_AM), !!(status2 & NRF905_STATUS_DR), &nrf905_rx_obj);
     
-    uint8_t received_data[sizeof(HAL_RADIO_TEST_PAYLOAD) + 1] = {0};
-    nrf905_get_rx_data(&nrf905_rx_obj, received_data, payload_len);
-    received_data[sizeof(HAL_RADIO_TEST_PAYLOAD)] = 0;
-    printf("Received data: %s, on %p\n", received_data, &nrf905_rx_obj);
+    uint8_t *received_data;
+    nrf905_get_rx_data(&nrf905_rx_obj, &received_data);
+    printf("Received data: %.*s, on %p\n", payload_len, received_data, &nrf905_rx_obj);
 
     nrf905_set_mode(&nrf905_tx_obj, NRF905_MODE_STANDBY); 
     nrf905_set_mode(&nrf905_rx_obj, NRF905_MODE_SHOCKBURST_RX_RADIO_EN); 
