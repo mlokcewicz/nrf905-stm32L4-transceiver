@@ -302,7 +302,7 @@ static void uart4_rx_dma_tc(void)
 #endif
 }
 
-static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
+static void uart4_dma_config_internal(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
 {
     if (is_rx)
     {
@@ -325,7 +325,6 @@ static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t l
         };
 
         dma_channel_config(&rx_cfg);
-        dma_channel_enable(rx_cfg.inst, rx_cfg.channel, true);
     }
     else
     {
@@ -348,8 +347,13 @@ static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t l
         };
 
         dma_channel_config(&tx_cfg);
-        dma_channel_enable(tx_cfg.inst, tx_cfg.channel, true);
     }
+}
+
+static void uart4_dma_config(uintptr_t periph_address, uint8_t *data, uint32_t len, bool is_rx)
+{
+    uart4_dma_config_internal(periph_address, data, len, is_rx);
+    dma_channel_enable(HAL_USART_DMA_INSTANCE, is_rx ? HAL_USART_DMA_RX_CHANNEL : HAL_USART_DMA_TX_CHANNEL, true);
 }
 
 #if CONFIG_TRANSMITTER_EN
@@ -1105,15 +1109,8 @@ void hal_radio_rx_config(void)
     /* Generate an update DMA request to enable UART4 TX DMA */
     TIM1->DIER |= TIM_DIER_UDE; 
 
-    /*Disable UART TX DMA request generation */
-    UART4->CR3 &= ~USART_CR3_DMAT;
-    
-    uart4_dma_config((uintptr_t)&UART4->TDR, nrf_get_payload_received_data + 1, HAL_RADIO_RX_PAYLOAD_SIZE + 1, false);
-    
-    /* Disable DMA channel to prevent unwanted transfers on first DR signal*/
-    DMA2_Channel3->CCR &= ~DMA_CCR_EN;
-    UART4->CR3 |= USART_CR3_DMAT;
-    UART4->CR1 |= USART_CR1_UE;
+    dma_channel_enable(HAL_USART_DMA_INSTANCE, HAL_USART_DMA_TX_CHANNEL, false);
+    uart4_dma_config_internal((uintptr_t)&UART4->TDR, nrf_get_payload_received_data + 1, HAL_RADIO_RX_PAYLOAD_SIZE + 1, false);
 
     /* Configure DMA channel and request for enabling disabling UART4 TX DMA on DR falling edge */
     static uint32_t nrf_rx_dma_uart4_tx_rearm_cfg[2] = {0};
